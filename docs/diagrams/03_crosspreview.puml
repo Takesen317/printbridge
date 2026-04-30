@@ -1,0 +1,41 @@
+@startuml PrintBridge_跨媒介预览模块
+!theme plain
+
+title 跨媒介预览模块结构图
+
+class CrossPreview {
+  +originalImage: ImageData
+  +processedImage: ImageData
+  +processingOptions: Options
+  +processImage()
+}
+
+class SideBySideView {
+  +render()
+}
+
+class OverlayView {
+  +opacity: number
+  +render()
+}
+
+class ViewingConditionsPanel {
+  +lightSource: string
+  +paperType: string
+  +viewingDistance: number
+  +resolution: number
+  +updateOptions()
+}
+
+class AiAssistant {
+  +analyze()
+  +getRecommendation()
+}
+
+CrossPreview --> SideBySideView
+CrossPreview --> OverlayView
+CrossPreview --> ViewingConditionsPanel
+CrossPreview --> AiAssistant
+ViewingConditionsPanel ..> CrossPreview : updates options
+
+@enduml

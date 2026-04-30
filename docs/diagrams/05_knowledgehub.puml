@@ -1,0 +1,38 @@
+@startuml PrintBridge_知识中心模块
+!theme plain
+
+title 知识中心模块结构图
+
+class KnowledgeHub {
+  +activeTab: string
+  +cases: Case[]
+  +demos: Demo[]
+  +quizzes: Quiz[]
+}
+
+class CaseLibrary {
+  +cases: Case[]
+  +selectedCase: Case
+  +selectCase()
+}
+
+class InteractiveDemo {
+  +parameters: Object
+  +saturation: number
+  +contrast: number
+  +updateParameter()
+}
+
+class Quiz {
+  +questions: Question[]
+  +currentQuestion: number
+  +score: number
+  +next()
+  +submit()
+}
+
+KnowledgeHub --> CaseLibrary
+KnowledgeHub --> InteractiveDemo
+KnowledgeHub --> Quiz
+
+@enduml

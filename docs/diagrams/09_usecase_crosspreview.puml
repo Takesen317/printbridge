@@ -1,0 +1,35 @@
+@startuml PrintBridge_跨媒介预览用例图
+!theme plain
+
+title 跨媒介预览用例图
+
+:left to right direction
+
+actor 用户 as U
+
+rectangle 跨媒介预览 {
+  usecase 选择对比模式 as UC1
+  usecase 并排对比 as UC2
+  usecase 叠加对比 as UC3
+  usecase 调整光源 as UC4
+  usecase 调整纸张材质 as UC5
+  usecase 调整观察距离 as UC6
+  usecase 调整分辨率 as UC7
+  usecase 刷新预览 as UC8
+  usecase AI色彩分析 as UC9
+}
+
+U --> UC1
+U --> UC2
+U --> UC3
+U --> UC4
+U --> UC5
+U --> UC6
+U --> UC7
+U --> UC8
+U --> UC9
+
+UC1 <|-- UC2
+UC1 <|-- UC3
+
+@enduml

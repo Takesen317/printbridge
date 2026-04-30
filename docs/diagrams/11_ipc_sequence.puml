@@ -1,0 +1,31 @@
+@startuml PrintBridge_IPC通信时序图
+!theme plain
+
+title IPC通信时序图
+
+actor 用户 as U
+participant Renderer as R
+participant Preload as P
+participant Main as M
+
+U -> R : 导入图像
+R -> P : openFile(options)
+P -> M : ipcRenderer.invoke('dialog:openFile')
+M -> M : 显示文件对话框
+M -->> P : {filePath, buffer}
+P -->> R : {filePath, buffer}
+R -> R : 显示图像
+
+U -> R : 调整观察条件
+R -> P : processImage(buffer, options)
+P -> M : ipcRenderer.invoke('image:process')
+M -->> P : processedBuffer
+P -->> R : processedBuffer
+R -> R : 更新预览
+
+M -> R : menu:import (webContents.send)
+R -> P : onMenuAction(callback)
+P -> R : callback('import')
+R -> R : 触发文件选择
+
+@enduml

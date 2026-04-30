@@ -1,0 +1,25 @@
+@startuml PrintBridge_色彩实验室模块
+!theme plain
+
+title 色彩实验室模块结构图
+
+class ColorLab {
+  +imageData: ImageData
+  +viewMode: ViewMode
+  +activeProfile: string
+  +handleOpenFile()
+  +loadImageFromBuffer()
+  +analyzeColor()
+}
+
+class ProfileSelector {
+  +profiles: ICCProfile[]
+  +onSelect(profile)
+}
+
+class ColorAnalyzer {
+  +analysis: ColorAnalysis
+  +runAnalysis()
+}
+
+class SoftProofPreview {

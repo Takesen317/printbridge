@@ -1,0 +1,32 @@
+@startuml PrintBridge_色彩实验室用例图
+!theme plain
+
+title 色彩实验室用例图
+
+:left to right direction
+
+actor 用户 as U
+
+rectangle 色彩实验室 {
+  usecase 导入图像 as UC1
+  usecase 选择ICC配置 as UC2
+  usecase 执行色彩分析 as UC3
+  usecase 查看分析结果 as UC4
+  usecase 软打样预览 as UC5
+  usecase 导出图像 as UC6
+}
+
+U --> UC1
+U --> UC2
+U --> UC3
+U --> UC4
+U --> UC5
+U --> UC6
+
+UC1 ..> UC2 : <<extends>>
+UC2 ..> UC3 : <<extends>>
+UC3 ..> UC4 : <<extends>>
+UC4 ..> UC5 : <<extends>>
+UC5 ..> UC6 : <<extends>>
+
+@enduml

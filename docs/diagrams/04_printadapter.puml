@@ -1,0 +1,35 @@
+@startuml PrintBridge_打印适配器模块
+!theme plain
+
+title 打印适配器模块结构图
+
+class PrintAdapter {
+  +problems: Problem[]
+  +runCheck()
+  +fixProblem()
+}
+
+class ProblemList {
+  +problems: Problem[]
+  +render()
+}
+
+class Wizard {
+  +currentStep: number
+  +totalSteps: number
+  +next()
+  +prev()
+}
+
+class fixActions {
+  +fixResolution()
+  +fixColorMode()
+  +addBleed()
+  +fixGamut()
+}
+
+PrintAdapter --> ProblemList
+PrintAdapter --> Wizard
+PrintAdapter --> fixActions
+
+@enduml

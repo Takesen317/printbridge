@@ -1,0 +1,65 @@
+@startuml PrintBridge_核心类图
+!theme plain
+
+title 核心类图
+
+class ColorStore {
+  +activeProfile: string
+  +analysis: ColorAnalysis
+  +profiles: ICCProfile[]
+  +setActiveProfile()
+  +setAnalysis()
+  +getProfiles()
+}
+
+class ProjectStore {
+  +originalImage: ImageData
+  +processedImage: ImageData
+  +processingOptions: Options
+  +setOriginalImage()
+  +setProcessedImage()
+  +updateProcessingOptions()
+}
+
+class ColorEngine {
+  +profiles: ICCProfile[]
+  +getAvailableProfiles()
+  +analyzeColor()
+  +initializeColorEngine()
+  +rgbToCmyk()
+  +calculateDeltaE()
+}
+
+class ImageProcessor {
+  +simulatePrintPreview()
+  +processImage()
+}
+
+class PrintChecker {
+  +checkResolution()
+  +checkColorMode()
+  +checkBleed()
+  +checkGamut()
+  +getProblemList()
+}
+
+class AiColorAdvisor {
+  +apiKey: string
+  +analyzeImage()
+  +getRecommendation()
+}
+
+class useImageProcessorWorker {
+  +processImage()
+  +isProcessing: boolean
+  +error: string
+}
+
+ColorEngine ..> ColorStore
+ImageProcessor ..> ProjectStore
+PrintChecker ..> ProjectStore
+AiColorAdvisor ..> ColorStore
+AiColorAdvisor ..> ProjectStore
+useImageProcessorWorker --> ImageProcessor
+
+@enduml

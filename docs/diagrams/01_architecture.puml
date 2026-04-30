@@ -1,0 +1,35 @@
+@startuml PrintBridge_系统架构图
+!theme plain
+
+title PrintBridge 系统架构图
+
+package "Main Process" {
+  [主进程\n窗口管理] as M1
+  [菜单系统] as M2
+  [IPC处理器] as M3
+}
+
+package "Preload" {
+  [预加载脚本\ncontextBridge] as P1
+}
+
+package "Renderer" {
+  [React应用] as R1
+  [色彩实验室] as R2
+  [跨媒介预览] as R3
+  [打印适配器] as R4
+  [知识中心] as R5
+  [AI色彩顾问] as R6
+}
+
+M1 --> M2
+M1 --> M3
+M3 <--> P1
+P1 --> R1
+R1 --> R2
+R1 --> R3
+R1 --> R4
+R1 --> R5
+R3 --> R6
+
+@enduml
