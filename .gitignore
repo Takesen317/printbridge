@@ -10,7 +10,6 @@ release/
 test-results/
 test-screenshot.png
 *.test.js
-tests/
 
 # IDE
 .vscode/

@@ -1,16 +1,9 @@
-/**
- * AI Assistant Panel Component
- *
- * Provides AI-powered color analysis and ICC profile recommendations.
- * Uses DeepSeek LLM to analyze images and suggest optimal print settings.
- */
-
-import { Card, Button, Select, Spin, Tag, Typography, Space, Divider, Alert } from 'antd'
-import { RobotOutlined, ThunderboltOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons'
-import { useState } from 'react'
+import { CheckCircleOutlined, RobotOutlined, ThunderboltOutlined, WarningOutlined } from '@ant-design/icons'
+import { Alert, Button, Card, Divider, Select, Space, Spin, Tag, Typography } from 'antd'
+import { analyzeImageWithAI } from '../../services/ai-color-advisor'
 import { useProjectStore } from '../../store/project'
 import { toRealImageData } from '../../utils/image-utils'
-import { analyzeImageWithAI, AIColorAdvice, AIColorAnalysisRequest } from '../../services/ai-color-advisor'
+import { useState } from 'react'
 
 const { Title, Text, Paragraph } = Typography
 
@@ -20,48 +13,50 @@ interface AiAssistantProps {
 
 export default function AiAssistant({ className }: AiAssistantProps) {
   const originalImage = useProjectStore((state) => state.originalImage)
+  const advice = useProjectStore((state) => state.aiAdvice)
+  const targetUse = useProjectStore((state) => state.aiTargetUse)
+  const setAiAdvice = useProjectStore((state) => state.setAiAdvice)
+  const setAiTargetUse = useProjectStore((state) => state.setAiTargetUse)
   const [loading, setLoading] = useState(false)
-  const [advice, setAdvice] = useState<AIColorAdvice | null>(null)
-  const [targetUse, setTargetUse] = useState<AIColorAnalysisRequest['targetUse']>('general')
   const [error, setError] = useState<string | null>(null)
 
   const handleAnalyze = async () => {
     const imageData = toRealImageData(originalImage)
     if (!imageData) {
-      setError('请先上传图片')
+      setError('Please upload an image first.')
       return
     }
 
     setLoading(true)
     setError(null)
-    setAdvice(null)
+    setAiAdvice(null)
 
     try {
       const result = await analyzeImageWithAI(imageData, targetUse)
-      setAdvice(result)
+      setAiAdvice(result)
     } catch (err) {
       console.error('AI analysis failed:', err)
-      setError('AI分析失败，请稍后重试')
+      setError('AI analysis failed. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
   const targetUseOptions = [
-    { value: 'general', label: '通用印刷' },
-    { value: 'magazine', label: '杂志/期刊' },
-    { value: 'brochure', label: '宣传册/海报' },
-    { value: 'photo_print', label: '照片打印' },
-    { value: 'packaging', label: '产品包装' }
+    { value: 'general', label: 'General print' },
+    { value: 'magazine', label: 'Magazine / editorial' },
+    { value: 'brochure', label: 'Brochure / poster' },
+    { value: 'photo_print', label: 'Photo print' },
+    { value: 'packaging', label: 'Packaging' }
   ]
 
   const profileTags: Record<string, string> = {
-    'sRGB': 'RGB',
+    sRGB: 'RGB',
     'Adobe RGB': 'RGB',
     'Coated FOGRA39': 'CMYK',
     'Uncoated FOGRA29': 'CMYK',
     'Japan Color 2001 Coated': 'CMYK',
-    'GRACoL2006': 'CMYK'
+    GRACoL2006: 'CMYK'
   }
 
   return (
@@ -73,40 +68,37 @@ export default function AiAssistant({ className }: AiAssistantProps) {
       }}
       styles={{ body: { padding: 16 } }}
     >
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-        <div style={{
-          width: 36,
-          height: 36,
-          borderRadius: 8,
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
+        <div
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 8,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
           <RobotOutlined style={{ fontSize: 18, color: '#fff' }} />
         </div>
         <div>
-          <Title level={5} style={{ margin: 0, fontSize: 15 }}>AI色彩顾问</Title>
-          <Text type="secondary" style={{ fontSize: 11 }}>DeepSeek 智能分析</Text>
+          <Title level={5} style={{ margin: 0, fontSize: 15 }}>
+            AI Color Advisor
+          </Title>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            DeepSeek or fallback rule set
+          </Text>
         </div>
       </div>
 
-      {/* Target Use Selector */}
       <div style={{ marginBottom: 16 }}>
         <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-          印刷用途
+          Target output
         </Text>
-        <Select
-          value={targetUse}
-          onChange={setTargetUse}
-          options={targetUseOptions}
-          style={{ width: '100%' }}
-          size="small"
-        />
+        <Select value={targetUse} onChange={setAiTargetUse} options={targetUseOptions} style={{ width: '100%' }} size="small" />
       </div>
 
-      {/* Analyze Button */}
       <Button
         type="primary"
         icon={<ThunderboltOutlined />}
@@ -120,102 +112,86 @@ export default function AiAssistant({ className }: AiAssistantProps) {
           border: 'none'
         }}
       >
-        {loading ? '分析中...' : 'AI智能分析'}
+        {loading ? 'Analyzing...' : 'Run AI analysis'}
       </Button>
 
-      {/* Error Message */}
-      {error && (
-        <Alert
-          type="error"
-          message={error}
-          showIcon
-          style={{ marginTop: 12 }}
-        />
-      )}
+      {error && <Alert type="error" message={error} showIcon style={{ marginTop: 12 }} />}
 
-      {/* AI Result */}
       {advice && (
         <div style={{ marginTop: 16 }}>
           <Divider style={{ margin: '12px 0' }} />
 
-          {/* Recommended Profile */}
           <div style={{ marginBottom: 12 }}>
             <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-              推荐配置文件
+              Recommended profile
             </Text>
-            <Tag
-              color={advice.profileType === 'cmyk' ? 'blue' : 'green'}
-              style={{ fontSize: 13, padding: '4px 8px' }}
-            >
+            <Tag color={advice.profileType === 'cmyk' ? 'blue' : 'green'} style={{ fontSize: 13, padding: '4px 8px' }}>
               {advice.recommendedProfile} ({profileTags[advice.recommendedProfile] || 'RGB'})
+            </Tag>
+            <Tag style={{ marginLeft: 8 }}>{advice.source}</Tag>
+            <Tag color={advice.confidence === 'high' ? 'green' : advice.confidence === 'medium' ? 'gold' : 'default'}>
+              confidence: {advice.confidence}
             </Tag>
           </div>
 
-          {/* Reasoning */}
           <div style={{ marginBottom: 12 }}>
             <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-              分析理由
+              Reasoning
             </Text>
-            <Paragraph style={{ fontSize: 12, margin: 0, color: 'var(--color-text-secondary)' }}>
-              {advice.reasoning}
-            </Paragraph>
+            <Paragraph style={{ fontSize: 12, margin: 0, color: 'var(--color-text-secondary)' }}>{advice.reasoning}</Paragraph>
           </div>
 
-          {/* Color Adjustments */}
+          {advice.approximationNotice && (
+            <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={advice.approximationNotice} />
+          )}
+
           <div style={{ marginBottom: 12 }}>
             <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-              色彩调整建议
+              Suggested adjustments
             </Text>
             <Space wrap size={4}>
               <Tag icon={<CheckCircleOutlined />} color="processing">
-                色温: {advice.colorTemperature}
+                temperature: {advice.colorTemperature}
               </Tag>
               <Tag icon={<CheckCircleOutlined />} color="processing">
-                饱和度: {advice.saturation}
+                saturation: {advice.saturation}
               </Tag>
               <Tag icon={<CheckCircleOutlined />} color="processing">
-                对比度: {advice.contrast}
+                contrast: {advice.contrast}
               </Tag>
             </Space>
           </div>
 
-          {/* Printing Tips */}
           <div>
             <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
               <WarningOutlined style={{ marginRight: 4 }} />
-              印刷提示
+              Print tips
             </Text>
             <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: 'var(--color-text-secondary)' }}>
               {advice.printingTips.map((tip, index) => (
-                <li key={index} style={{ marginBottom: 4 }}>{tip}</li>
+                <li key={index} style={{ marginBottom: 4 }}>
+                  {tip}
+                </li>
               ))}
             </ul>
           </div>
         </div>
       )}
 
-      {/* No Image Hint */}
       {!originalImage && !loading && !advice && (
-        <div style={{
-          textAlign: 'center',
-          padding: '20px 0',
-          color: 'var(--color-text-secondary)'
-        }}>
+        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--color-text-secondary)' }}>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            上传图片后点击"AI智能分析"
-            <br />
-            获取专业色彩建议
+            Upload an image to unlock AI-assisted color guidance.
           </Text>
         </div>
       )}
 
-      {/* Loading State */}
       {loading && (
         <div style={{ textAlign: 'center', padding: '20px 0' }}>
           <Spin size="small" />
           <div style={{ marginTop: 8 }}>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              AI正在分析图像色彩...
+              AI is evaluating image color characteristics...
             </Text>
           </div>
         </div>

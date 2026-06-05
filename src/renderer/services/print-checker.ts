@@ -1,5 +1,6 @@
-import { rgbToCmyk, deltaE, RGB } from '../utils/color-convert'
+import { deltaE, rgbToCmyk, type RGB } from '../utils/color-convert'
 import { calculateEdgeVariance } from '../utils/image-utils'
+import { formatPreflightDescription } from './preflight-messages'
 
 export type ProblemType =
   | 'color-mode'
@@ -8,263 +9,116 @@ export type ProblemType =
   | 'fonts-not-embedded'
   | 'out-of-gamut'
 
+export type ProblemConfidence = 'high' | 'medium' | 'low'
+export type ProblemCategory = 'deterministic' | 'heuristic' | 'advisory'
+
 export interface PrintProblem {
   type: ProblemType
   severity: 'error' | 'warning' | 'info'
+  category: ProblemCategory
+  confidence: ProblemConfidence
   title: string
   description: string
-  location?: { x: number, y: number, width: number, height: number }
+  location?: { x: number; y: number; width: number; height: number }
   suggestedFix?: string
 }
 
 export interface PrintCheckResult {
   problems: PrintProblem[]
   canPrint: boolean
-  overallScore: number  // 0-100
+  overallScore: number
+  heuristicWarnings: number
+  deterministicIssues: number
 }
 
 export interface PrintCheckOptions {
-  /** 最小分辨率 (DPI) */
   minResolution?: number
-  /** 需要的出血量 (mm) */
   requiredBleed?: number
-  /** 目标纸张尺寸 */
   paperSize?: 'A4' | 'A3' | 'A5' | 'custom'
-  /** 自定义纸张宽度 (mm) - 当 paperSize 为 custom 时使用 */
   customWidthMm?: number
-  /** 自定义纸张高度 (mm) - 当 paperSize 为 custom 时使用 */
   customHeightMm?: number
-  /** 色域阈值 (ΔE) - 超过此值认为出界 */
   gamutThreshold?: number
 }
 
-const PAPER_SIZES: Record<string, { width: number; height: number }> = {
-  'A4': { width: 210, height: 297 },
-  'A3': { width: 297, height: 420 },
-  'A5': { width: 148, height: 210 }
+interface SampleSummary {
+  outOfGamutCount: number
+  sampleCount: number
 }
 
-/**
- * Calculate DPI based on image dimensions and paper size
- */
-function calculateDpi(imageWidth: number, imageHeight: number, options: PrintCheckOptions): number {
-  const paperSize = options.paperSize || 'A4'
-  const paper = PAPER_SIZES[paperSize]
+const PAPER_SIZES: Record<'A4' | 'A3' | 'A5', { width: number; height: number }> = {
+  A4: { width: 210, height: 297 },
+  A3: { width: 297, height: 420 },
+  A5: { width: 148, height: 210 }
+}
 
-  if (!paper) {
-    // 默认使用 A4 尺寸
-    return imageWidth / (210 / 25.4)
+const BLEED_VARIANCE_MIN = 10
+const GAMUT_DELTA_E_THRESHOLD = 3
+
+function resolvePaperSize(options: PrintCheckOptions): { width: number; height: number } {
+  if (options.paperSize === 'custom' && options.customWidthMm && options.customHeightMm) {
+    return { width: options.customWidthMm, height: options.customHeightMm }
   }
 
-  // 计算横向和纵向 DPI，取较小的
+  return PAPER_SIZES[options.paperSize && options.paperSize !== 'custom' ? options.paperSize : 'A4']
+}
+
+function calculateDpi(imageWidth: number, imageHeight: number, options: PrintCheckOptions): number {
+  const paper = resolvePaperSize(options)
   const dpiX = imageWidth / (paper.width / 25.4)
   const dpiY = imageHeight / (paper.height / 25.4)
-
   return Math.min(dpiX, dpiY)
 }
 
-/**
- * Check if a single RGB color is out of CMYK gamut
- * Uses the RGB→CMYK→RGB round-trip method
- */
-// 出血检测阈值：边缘颜色变化方差最小值，低于此值认为无出血
-const BLEED_VARIANCE_MIN = 10
-// 色域检测阈值：ΔE > 此值 认为超出 CMYK 色域
-const GAMUT_DELTA_E_THRESHOLD = 3
-
-function isOutOfGamut(color: RGB, threshold: number = 3): boolean {
+function isOutOfGamut(color: RGB, threshold = GAMUT_DELTA_E_THRESHOLD): boolean {
   const cmyk = rgbToCmyk(color)
-  // 转换回 RGB 比较色差
+  if (cmyk.k >= 99) return false
+
   const k = cmyk.k / 100
   const c = cmyk.c / 100
   const m = cmyk.m / 100
   const y = cmyk.y / 100
 
-  // 往返转换的误差就是色域超出程度
-  // 如果 K=100（纯黑）则不会出界
-  if (cmyk.k >= 99) return false
-
-  // 计算往返误差 ΔE (CIE2000)
   const r1 = Math.round((1 - c) * (1 - k) * 255)
   const g1 = Math.round((1 - m) * (1 - k) * 255)
   const b1 = Math.round((1 - y) * (1 - k) * 255)
 
-  const dE = deltaE(color, { r: r1, g: g1, b: b1 })
-
-  return dE > threshold
+  return deltaE(color, { r: r1, g: g1, b: b1 }) > threshold
 }
 
-export function checkPrintReadiness(
-  imageData: ImageData,
-  options: PrintCheckOptions = {}
-): PrintCheckResult {
-  const problems: PrintProblem[] = []
-  const minRes = options.minResolution || 300
-  const bleed = options.requiredBleed || 3
-  const gamutThreshold = options.gamutThreshold || GAMUT_DELTA_E_THRESHOLD
-
-  // 1. 检查分辨率
-  const estimatedDpi = calculateDpi(imageData.width, imageData.height, options)
-  if (estimatedDpi < minRes) {
-    problems.push({
-      type: 'low-resolution',
-      severity: 'error',
-      title: '分辨率不足',
-      description: `图像分辨率 ${Math.round(estimatedDpi)} DPI 低于印刷要求的 ${minRes} DPI`,
-      suggestedFix: '请使用高分辨率源图像，或在印刷前进行超采样放大'
-    })
-  } else if (estimatedDpi < minRes * 1.2) {
-    // 警告：分辨率接近最低要求
-    problems.push({
-      type: 'low-resolution',
-      severity: 'warning',
-      title: '分辨率接近下限',
-      description: `图像分辨率 ${Math.round(estimatedDpi)} DPI 接近印刷要求 ${minRes} DPI`,
-      suggestedFix: '建议使用更高分辨率的图像以确保印刷质量'
-    })
-  }
-
-  // 2. 检查色域（使用采样以提高性能）
-  const outOfGamutCount = checkOutOfGamut(imageData, gamutThreshold)
-  const outOfGamutPercentage = (outOfGamutCount / (imageData.width * imageData.height)) * 100
-
-  if (outOfGamutCount > 0) {
-    if (outOfGamutPercentage > 10) {
-      problems.push({
-        type: 'out-of-gamut',
-        severity: 'error',
-        title: '大量颜色超出可印刷范围',
-        description: `检测到 ${outOfGamutCount} 个像素 (${Math.round(outOfGamutPercentage)}%) 的颜色无法准确印刷`,
-        suggestedFix: '请将鲜艳颜色替换为印刷色域内的等效颜色，或使用更广色域的印刷工艺'
-      })
-    } else if (outOfGamutPercentage > 1) {
-      problems.push({
-        type: 'out-of-gamut',
-        severity: 'warning',
-        title: '部分颜色超出可印刷范围',
-        description: `检测到 ${outOfGamutCount} 个像素 (${Math.round(outOfGamutPercentage * 10) / 10}%) 的颜色超出印刷色域`,
-        suggestedFix: '请检查高饱和度区域的色彩准确性'
-      })
-    } else {
-      problems.push({
-        type: 'out-of-gamut',
-        severity: 'info',
-        title: '少量颜色超出可印刷范围',
-        description: `检测到 ${outOfGamutCount} 个像素的颜色超出印刷色域（ΔE > ${gamutThreshold}）`,
-        suggestedFix: '在大多数情况下这些微小差异不会被注意'
-      })
-    }
-  }
-
-  // 3. 检查出血（使用边缘方差检测）
-  const hasBleed = checkBleed(imageData, bleed)
-  if (!hasBleed) {
-    problems.push({
-      type: 'missing-bleed',
-      severity: 'warning',
-      title: '缺少出血',
-      description: `图像边缘未检测到足够的出血区域（需要约 ${bleed}mm）`,
-      suggestedFix: '请在图像边缘添加至少 3mm 出血区域，并确保内容延伸到图像边缘'
-    })
-  }
-
-  // 4. 检查色彩模式 (RGB vs CMYK)
-  // 通过采样检测图像是否看起来像未转换的 RGB
-  const colorMode = detectColorMode(imageData)
-  if (colorMode === 'rgb') {
-    problems.push({
-      type: 'color-mode',
-      severity: 'warning',
-      title: '图像未转换为 CMYK',
-      description: '检测到 RGB 色彩空间，印刷前建议转换为 CMYK 以确保色彩准确性',
-      suggestedFix: '在色彩管理模块中使用 RGB→CMYK 转换'
-    })
-  } else if (colorMode === 'gray') {
-    problems.push({
-      type: 'color-mode',
-      severity: 'info',
-      title: '灰度图像',
-      description: '检测到灰度图像，请确认印刷是否为单色印刷',
-      suggestedFix: '如果需要彩色印刷，请使用 RGB 源文件'
-    })
-  }
-
-  // 计算总分
-  const errorCount = problems.filter(p => p.severity === 'error').length
-  const warningCount = problems.filter(p => p.severity === 'warning').length
-  const score = Math.max(0, 100 - errorCount * 30 - warningCount * 10)
-
-  return {
-    problems,
-    canPrint: errorCount === 0,
-    overallScore: score
-  }
-}
-
-/**
- * Check for out-of-gamut pixels using sampling
- * Returns count of out-of-gamut pixels
- */
-function checkOutOfGamut(imageData: ImageData, threshold: number): number {
+function sampleOutOfGamut(imageData: ImageData, threshold: number): SampleSummary {
   const { width, height, data } = imageData
-  let count = 0
-
-  // 采样间隔：图像越大采样间隔越大
   const step = Math.max(5, Math.floor(Math.max(width, height) / 100))
+  let outOfGamutCount = 0
+  let sampleCount = 0
 
   for (let y = 0; y < height; y += step) {
     for (let x = 0; x < width; x += step) {
       const i = (y * width + x) * 4
-      const color: RGB = {
-        r: data[i],
-        g: data[i + 1],
-        b: data[i + 2]
-      }
-
+      const color: RGB = { r: data[i], g: data[i + 1], b: data[i + 2] }
+      sampleCount++
       if (isOutOfGamut(color, threshold)) {
-        count++
+        outOfGamutCount++
       }
     }
   }
 
-  return count
+  return { outOfGamutCount, sampleCount }
 }
 
-/**
- * Check for bleed using edge color variance
- * High variance on edges indicates content extending to the edge (has bleed)
- * Low variance indicates solid color edges (no bleed)
- * Note: bleedMm parameter reserved for future pixel-based bleed calculation
- */
-function checkBleed(imageData: ImageData, _bleedMm?: number): boolean {
-  // 出血阈值：根据 mm 转换为像素比例
-  // 假设 300 DPI，3mm ≈ 35 像素
-  // 边缘方差超过这个阈值说明有内容延伸
-  const edgeVariance = calculateEdgeVariance(imageData, 30)
-
-  // 方差阈值：经验值
-  // 边缘颜色变化大说明有内容（出血良好）
-  // 边缘颜色单一说明是纯色边框（没有出血）
-  return edgeVariance > BLEED_VARIANCE_MIN
+function checkBleed(imageData: ImageData): boolean {
+  return calculateEdgeVariance(imageData, 30) > BLEED_VARIANCE_MIN
 }
 
-/**
- * Detect if an image appears to be in RGB, CMYK, or Grayscale color mode
- * This is an approximation since ImageData doesn't contain color space metadata
- * Uses statistical analysis of pixel values to infer the color mode
- */
-function detectColorMode(imageData: ImageData): 'rgb' | 'cmyk' | 'gray' {
+function detectColorMode(imageData: ImageData): 'rgb' | 'gray' {
   const { width, height, data } = imageData
   const totalPixels = width * height
-
-  // 采样数量（最多1000个采样点）
   const sampleSize = Math.min(1000, totalPixels)
   const step = Math.max(1, Math.floor(totalPixels / sampleSize))
 
-  let highSaturationCount = 0
   let grayCount = 0
   let totalSaturation = 0
   let colorfulPixelCount = 0
+  let sampledPixels = 0
 
   for (let i = 0; i < totalPixels; i += step) {
     const idx = i * 4
@@ -274,47 +128,167 @@ function detectColorMode(imageData: ImageData): 'rgb' | 'cmyk' | 'gray' {
 
     const max = Math.max(r, g, b)
     const min = Math.min(r, g, b)
+    if (max - min < 10) grayCount++
 
-    // 检测是否为灰度（RGB 值相近）
-    if (max - min < 10) {
-      grayCount++
-    }
-
-    // 计算饱和度
     const saturation = max === 0 ? 0 : (max - min) / max
     totalSaturation += saturation
-
-    // 高饱和度像素（可能是鲜艳的 RGB 颜色）
-    if (saturation > 0.5) {
-      highSaturationCount++
-    }
-
-    // 鲜艳且 RGB 各分量差异大的像素（典型的未转换 RGB 图像特征）
-    if (saturation > 0.3 && max - min > 50) {
-      colorfulPixelCount++
-    }
+    if (saturation > 0.3 && max - min > 50) colorfulPixelCount++
+    sampledPixels++
   }
 
-  const avgSaturation = totalSaturation / sampleSize
-  const grayRatio = grayCount / sampleSize
-  const colorfulRatio = colorfulPixelCount / sampleSize
+  const avgSaturation = totalSaturation / sampledPixels
+  const grayRatio = grayCount / sampledPixels
+  const colorfulRatio = colorfulPixelCount / sampledPixels
 
-  // 启发式判断：
-  // - 灰度图像：大部分像素是灰度
-  if (grayRatio > 0.95) {
-    return 'gray'
-  }
-
-  // - 如果平均饱和度高，且有大量鲜艳像素，认为是未转换的 RGB
-  if (avgSaturation > 0.3 && colorfulRatio > 0.2) {
-    return 'rgb'
-  }
-
-  // - 如果饱和度低，可能是灰度或已转换的 CMYK（通常饱和度较低）
-  if (avgSaturation < 0.15) {
-    return 'gray'
-  }
-
-  // 默认为 RGB（更常见）
+  if (grayRatio > 0.95 || avgSaturation < 0.15) return 'gray'
+  if (avgSaturation > 0.3 && colorfulRatio > 0.2) return 'rgb'
   return 'rgb'
+}
+
+export function checkPrintReadiness(imageData: ImageData, options: PrintCheckOptions = {}): PrintCheckResult {
+  const problems: PrintProblem[] = []
+  const minResolution = options.minResolution || 300
+  const requiredBleed = options.requiredBleed || 3
+  const gamutThreshold = options.gamutThreshold || GAMUT_DELTA_E_THRESHOLD
+
+  const estimatedDpi = calculateDpi(imageData.width, imageData.height, options)
+  if (estimatedDpi < minResolution) {
+    problems.push({
+      type: 'low-resolution',
+      severity: 'error',
+      category: 'deterministic',
+      confidence: 'high',
+      title: 'Resolution too low',
+      description: formatPreflightDescription({
+        category: 'deterministic',
+        detail: `Estimated output resolution is about ${Math.round(estimatedDpi)} DPI, below the target ${minResolution} DPI.`
+      }),
+      suggestedFix: 'Use a higher-resolution source image or reduce the final print size.'
+    })
+  } else if (estimatedDpi < minResolution * 1.2) {
+    problems.push({
+      type: 'low-resolution',
+      severity: 'warning',
+      category: 'deterministic',
+      confidence: 'high',
+      title: 'Resolution is close to the minimum',
+      description: formatPreflightDescription({
+        category: 'deterministic',
+        detail: `Estimated output resolution is about ${Math.round(estimatedDpi)} DPI, which is close to the target ${minResolution} DPI.`
+      }),
+      suggestedFix: 'Prepare a slightly higher-resolution image to reduce the risk of soft detail.'
+    })
+  }
+
+  const { outOfGamutCount, sampleCount } = sampleOutOfGamut(imageData, gamutThreshold)
+  const outOfGamutRatio = sampleCount === 0 ? 0 : outOfGamutCount / sampleCount
+  const outOfGamutPercentage = outOfGamutRatio * 100
+
+  if (outOfGamutCount > 0) {
+    const ratioText = `${Math.round(outOfGamutPercentage * 10) / 10}% of sampled pixels`
+    if (outOfGamutPercentage > 10) {
+      problems.push({
+        type: 'out-of-gamut',
+        severity: 'error',
+        category: 'heuristic',
+        confidence: 'medium',
+        title: 'High out-of-gamut risk',
+        description: formatPreflightDescription({
+          category: 'heuristic',
+          confidence: 'medium',
+          detail: `${ratioText} appear to exceed the target print gamut in the sampling pass.`
+        }),
+        suggestedFix: 'Reduce saturation in extreme color regions and check the result with soft proofing.'
+      })
+    } else if (outOfGamutPercentage > 1) {
+      problems.push({
+        type: 'out-of-gamut',
+        severity: 'warning',
+        category: 'heuristic',
+        confidence: 'medium',
+        title: 'Potential out-of-gamut colors detected',
+        description: formatPreflightDescription({
+          category: 'heuristic',
+          confidence: 'medium',
+          detail: `${ratioText} appear to exceed the target print gamut in the sampling pass.`
+        }),
+        suggestedFix: 'Review the most saturated areas and compare them under the selected ICC workflow.'
+      })
+    } else {
+      problems.push({
+        type: 'out-of-gamut',
+        severity: 'info',
+        category: 'heuristic',
+        confidence: 'low',
+        title: 'Minor gamut-edge activity',
+        description: formatPreflightDescription({
+          category: 'heuristic',
+          confidence: 'low',
+          detail: `${ratioText} may be close to or outside the target gamut according to the sampling heuristic.`
+        }),
+        suggestedFix: 'If those colors are visually critical, review them manually before export.'
+      })
+    }
+  }
+
+  if (!checkBleed(imageData)) {
+    problems.push({
+      type: 'missing-bleed',
+      severity: 'warning',
+      category: 'heuristic',
+      confidence: 'low',
+      title: 'Possible missing bleed',
+      description: formatPreflightDescription({
+        category: 'heuristic',
+        confidence: 'low',
+        detail: `Edge extension looks limited for the target bleed setting of ${requiredBleed}mm.`
+      }),
+      suggestedFix: 'Confirm that artwork extends beyond the trim line and that the layout includes the intended bleed.'
+    })
+  }
+
+  const colorMode = detectColorMode(imageData)
+  if (colorMode === 'rgb') {
+    problems.push({
+      type: 'color-mode',
+      severity: 'warning',
+      category: 'advisory',
+      confidence: 'low',
+      title: 'Image likely still follows an RGB workflow',
+      description: formatPreflightDescription({
+        category: 'advisory',
+        confidence: 'low',
+        detail: 'Pixel distribution suggests RGB-like content. This does not prove the embedded ICC metadata.'
+      }),
+      suggestedFix: 'Confirm the intended output profile and review the image under the target CMYK workflow if needed.'
+    })
+  } else {
+    problems.push({
+      type: 'color-mode',
+      severity: 'info',
+      category: 'advisory',
+      confidence: 'low',
+      title: 'Image appears low-saturation or grayscale-like',
+      description: formatPreflightDescription({
+        category: 'advisory',
+        confidence: 'low',
+        detail: 'The sampled pixel distribution suggests grayscale or low-saturation content.'
+      }),
+      suggestedFix: 'If the job is intended for full-color print, double-check the source color configuration.'
+    })
+  }
+
+  const deterministicIssues = problems.filter((problem) => problem.category === 'deterministic' && problem.severity !== 'info').length
+  const heuristicWarnings = problems.filter((problem) => problem.category === 'heuristic' && problem.severity !== 'info').length
+  const errorCount = problems.filter((problem) => problem.severity === 'error').length
+  const warningCount = problems.filter((problem) => problem.severity === 'warning').length
+  const score = Math.max(0, 100 - errorCount * 30 - warningCount * 10)
+
+  return {
+    problems,
+    canPrint: errorCount === 0,
+    overallScore: score,
+    heuristicWarnings,
+    deterministicIssues
+  }
 }

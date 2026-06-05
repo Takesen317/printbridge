@@ -8,7 +8,7 @@
  * Real ICC profiles (.icc files) need to be loaded by the user or bundled with the app.
  */
 
-// @ts-ignore - lcms-wasm doesn't have TypeScript declarations
+// @ts-expect-error - lcms-wasm doesn't provide TypeScript declarations
 import { instantiate } from 'lcms-wasm'
 
 // Types for lcms-wasm (inline since no type declarations exist)
@@ -109,7 +109,6 @@ export async function initLcms(): Promise<LcmsWasm> {
   if (initPromise) return initPromise
 
   initPromise = (async () => {
-    // @ts-ignore - lcms-wasm doesn't have TypeScript declarations
     const lcms: LcmsWasm = await instantiate()
     lcmsInstance = lcms
     return lcms

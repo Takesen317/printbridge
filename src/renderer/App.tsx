@@ -1,11 +1,11 @@
-import { useState, useEffect, Component, type ReactNode } from 'react'
+import { Component, type ReactNode, useEffect, useState } from 'react'
 import BasicLayout from './components/Layout/BasicLayout'
-import ColorLab from './modules/color-lab/ColorLab'
-import CrossPreview from './modules/cross-preview/CrossPreview'
-import PrintAdapter from './modules/print-adapter/PrintAdapter'
-import KnowledgeHub from './modules/knowledge-hub/KnowledgeHub'
-import { message } from 'antd'
 import { MODULE_CONFIG, type ModuleType } from './config/modules'
+import CrossPreview from './modules/cross-preview/CrossPreview'
+import KnowledgeHub from './modules/knowledge-hub/KnowledgeHub'
+import PrintAdapter from './modules/print-adapter/PrintAdapter'
+import ColorLab from './modules/color-lab/ColorLab'
+import type { MenuAction } from '../shared/constants/menu'
 
 interface Props {
   children: ReactNode
@@ -15,6 +15,8 @@ interface State {
   hasError: boolean
   error: Error | null
 }
+
+const COLOR_LAB_ACTIONS: MenuAction[] = ['import-image', 'export-image']
 
 class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -40,76 +42,69 @@ class ErrorBoundary extends Component<Props, State> {
         </div>
       )
     }
+
     return this.props.children
   }
 }
 
 function App() {
   const [activeModule, setActiveModule] = useState<ModuleType>('color-lab')
+  const safeActiveModule = MODULE_CONFIG.some((module) => module.key === activeModule) ? activeModule : 'color-lab'
 
-  // IPC menu action handler
+  const emitMenuAction = (action: MenuAction) => {
+    window.dispatchEvent(new CustomEvent<MenuAction>('printbridge:menu-action', { detail: action }))
+  }
+
   useEffect(() => {
     if (!window.electronAPI?.onMenuAction) return
 
-    const cleanup = window.electronAPI.onMenuAction((action: string) => {
-      if (action === 'import') {
-        document.getElementById('file-input')?.click()
-      } else if (action === 'export') {
-        // Trigger the export button in ColorLab if available
-        const exportButton = document.getElementById('export-button')
-        if (exportButton) {
-          (exportButton as HTMLButtonElement).click()
-        } else {
-          message.warning('请先打开色彩管理模块')
-        }
+    return window.electronAPI.onMenuAction((action) => {
+      if (COLOR_LAB_ACTIONS.includes(action)) {
+        setActiveModule('color-lab')
       }
+      emitMenuAction(action)
     })
-
-    return cleanup
   }, [])
 
-  // Keyboard shortcuts
   useEffect(() => {
-    const handleKeydown = (e: KeyboardEvent) => {
-      // Ctrl/Cmd + O: Open file
-      if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
-        e.preventDefault()
-        document.getElementById('file-input')?.click()
+    const handleKeydown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'o' && !event.shiftKey) {
+        event.preventDefault()
+        setActiveModule('color-lab')
+        emitMenuAction('import-image')
       }
-      // Ctrl/Cmd + S: Export
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault()
-        // Trigger the export button in ColorLab if available
-        const exportButton = document.getElementById('export-button')
-        if (exportButton) {
-          (exportButton as HTMLButtonElement).click()
-        } else {
-          message.warning('请先打开色彩管理模块')
-        }
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's' && !event.shiftKey) {
+        event.preventDefault()
+        setActiveModule('color-lab')
+        emitMenuAction('export-image')
       }
-      // Ctrl/Cmd + 1-4: Switch modules
-      if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '4') {
-        e.preventDefault()
-        const index = parseInt(e.key) - 1
+
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        emitMenuAction('save-project')
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'o') {
+        event.preventDefault()
+        emitMenuAction('load-project')
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key >= '1' && event.key <= '4') {
+        event.preventDefault()
+        const index = parseInt(event.key, 10) - 1
         if (MODULE_CONFIG[index]) {
           setActiveModule(MODULE_CONFIG[index].key)
         }
       }
     }
+
     window.addEventListener('keydown', handleKeydown)
     return () => window.removeEventListener('keydown', handleKeydown)
   }, [])
 
-  // Validate activeModule against config
-  useEffect(() => {
-    const isValidModule = MODULE_CONFIG.some(m => m.key === activeModule)
-    if (!isValidModule) {
-      setActiveModule('color-lab')
-    }
-  }, [activeModule, MODULE_CONFIG])
-
   const renderModule = () => {
-    switch (activeModule) {
+    switch (safeActiveModule) {
       case 'color-lab':
         return <ColorLab />
       case 'cross-preview':
@@ -125,7 +120,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <BasicLayout activeModule={activeModule} onModuleChange={setActiveModule}>
+      <BasicLayout activeModule={safeActiveModule} onModuleChange={setActiveModule}>
         {renderModule()}
       </BasicLayout>
     </ErrorBoundary>

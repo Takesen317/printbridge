@@ -1,6 +1,7 @@
 import { rgbToCmyk, cmykToRgb, deltaE, RGB, CMYK } from '../utils/color-convert'
 import { sampleImagePixels } from '../utils/image-utils'
 import { initLcms, isLcmsReady, getLoadedProfile, getSrgbProfile, getLcms, createTransform, deleteTransform } from './icc-handler'
+import { getIccInitializationStatusMessage } from './analysis-messages'
 import { useColorStore } from '../store/color'
 
 /**
@@ -26,7 +27,7 @@ export async function initializeColorEngine(): Promise<{ success: boolean; messa
     useColorStore.getState().setIccEngineStatus('degraded')
     return {
       success: false,
-      message: 'ICC 引擎初始化失败，使用简化色彩转换'
+      message: getIccInitializationStatusMessage()
     }
   }
 }
@@ -46,28 +47,28 @@ export interface ICCProfile {
 }
 
 export interface ColorAnalysis {
-  // 代表性颜色（平均值）
+  // Representative average color from the sampled image data.
   representativeColor: RGB
-  // 转换后的 CMYK 颜色
+  // CMYK color after conversion from the representative color.
   convertedColor: CMYK
-  // 平均色差
+  // Average color difference across sampled pixels.
   averageDeltaE: number
-  // 最大色差
+  // Maximum color difference across sampled pixels.
   maxDeltaE: number
-  // 是否在色域内
+  // Whether the sampled result stays within the target gamut.
   isInGamut: boolean
-  // 色域内像素百分比
+  // Percentage of sampled pixels that remain in gamut.
   inGamutPercentage: number
-  // 采样数量
+  // Number of pixels sampled during analysis.
   sampleCount: number
 }
 
 const DEFAULT_PROFILES: ICCProfile[] = [
-  { name: 'sRGB', description: '标准 RGB 色彩空间', type: 'rgb' },
-  { name: 'Adobe RGB', description: 'Adobe RGB 色彩空间', type: 'rgb' },
-  { name: 'Coated FOGRA39', description: '欧洲铜版纸印刷标准', type: 'cmyk' },
-  { name: 'Uncoated FOGRA29', description: '欧洲非涂布纸印刷标准', type: 'cmyk' },
-  { name: 'Japan Color 2001 Coated', description: '日本印刷标准', type: 'cmyk' }
+  { name: 'sRGB', description: 'Standard RGB color space', type: 'rgb' },
+  { name: 'Adobe RGB', description: 'Adobe RGB color space', type: 'rgb' },
+  { name: 'Coated FOGRA39', description: 'European coated printing standard', type: 'cmyk' },
+  { name: 'Uncoated FOGRA29', description: 'European uncoated printing standard', type: 'cmyk' },
+  { name: 'Japan Color 2001 Coated', description: 'Japan printing standard for coated stock', type: 'cmyk' }
 ]
 
 /**
@@ -82,7 +83,7 @@ const DEFAULT_PROFILES: ICCProfile[] = [
  * @param targetProfile - ICC profile to use for color conversion (when ICC engine ready)
  */
 export function analyzeColor(imageData: ImageData, targetProfile: ICCProfile): ColorAnalysis {
-  // 使用 5x5 网格采样获取代表性像素
+  // Use a 5x5 grid to sample representative pixels from the image.
   const samples = sampleImagePixels(imageData, 5)
 
   let totalR = 0, totalG = 0, totalB = 0
@@ -142,7 +143,7 @@ export function analyzeColor(imageData: ImageData, targetProfile: ICCProfile): C
     totalDeltaE += dE
     if (dE > maxDeltaE) maxDeltaE = dE
 
-    // ΔE < 3 通常被认为是在色域内
+    // DeltaE below 3 is commonly treated as visually in gamut.
     if (dE < 3) inGamutCount++
   }
 
@@ -155,7 +156,7 @@ export function analyzeColor(imageData: ImageData, targetProfile: ICCProfile): C
   const averageDeltaE = totalDeltaE / sampleCount
   const inGamutPercentage = (inGamutCount / sampleCount) * 100
 
-  // 平均颜色作为代表性颜色
+  // Use the average sampled RGB value as the representative color.
   const representativeColor: RGB = {
     r: Math.round(totalR / sampleCount),
     g: Math.round(totalG / sampleCount),
@@ -164,7 +165,7 @@ export function analyzeColor(imageData: ImageData, targetProfile: ICCProfile): C
 
   const convertedColor = rgbToCmyk(representativeColor)
 
-  // 如果平均 ΔE < 3，认为整体在色域内
+  // Treat the image as in gamut when the average DeltaE stays below 3.
   const isInGamut = averageDeltaE < 3
 
   return {

@@ -1,8 +1,8 @@
-import { Select, Button, Tag, Space, message, Typography } from 'antd'
-import { UploadOutlined, DeleteOutlined } from '@ant-design/icons'
-import { useColorStore } from '../../../store/color'
-import { ICCProfile } from '../../../services/color-engine'
+import { DeleteOutlined, UploadOutlined } from '@ant-design/icons'
+import { Button, message, Select, Space, Tag, Typography } from 'antd'
+import type { ICCProfile } from '../../../services/color-engine'
 import { loadProfileFromFile } from '../../../services/icc-handler'
+import { useColorStore } from '../../../store/color'
 
 const { Text } = Typography
 
@@ -15,7 +15,7 @@ export default function ProfileSelector({ profiles }: ProfileSelectorProps) {
 
   const handleLoadCustomProfile = async () => {
     if (!window.electronAPI?.openFile) {
-      message.error('Electron API 不可用')
+      message.error('Electron file access is not available.')
       return
     }
 
@@ -24,103 +24,108 @@ export default function ProfileSelector({ profiles }: ProfileSelectorProps) {
         filters: [{ name: 'ICC Profile', extensions: ['icc', 'icm'] }]
       })
 
-      if (result) {
-        const loadedProfile = await loadProfileFromFile(result.filePath)
-        if (loadedProfile) {
-          addCustomProfile({
-            name: loadedProfile.name,
-            description: `自定义: ${loadedProfile.colorSpace}`,
-            type: loadedProfile.type,
-            isCustom: true
-          })
-          message.success(`已加载 ICC Profile: ${loadedProfile.name}`)
-        } else {
-          message.error('无法加载 ICC Profile 文件')
-        }
+      if (!result) return
+
+      const loadedProfile = await loadProfileFromFile(result.filePath)
+      if (!loadedProfile) {
+        message.error('Unable to load the selected ICC profile.')
+        return
       }
+
+      addCustomProfile({
+        name: loadedProfile.name,
+        description: `Custom ${loadedProfile.colorSpace} profile`,
+        type: loadedProfile.type,
+        isCustom: true
+      })
+      message.success(`Loaded ICC profile: ${loadedProfile.name}`)
     } catch (err) {
       console.error('Failed to load ICC profile:', err)
-      message.error('加载 ICC Profile 失败')
+      message.error('Failed to load the ICC profile.')
     }
   }
 
-  const handleRemoveCustomProfile = (name: string, e: React.MouseEvent) => {
-    e.stopPropagation()
+  const handleRemoveCustomProfile = (name: string, event: React.MouseEvent) => {
+    event.stopPropagation()
     removeCustomProfile(name)
-    message.success(`已移除: ${name}`)
+    message.success(`Removed profile: ${name}`)
   }
 
-  // Merge built-in and custom profiles
-  const allProfiles = [...profiles, ...customProfiles.filter(cp => !profiles.some(p => p.name === cp.name))]
+  const allProfiles = [...profiles, ...customProfiles.filter((profile) => !profiles.some((builtin) => builtin.name === profile.name))]
 
   return (
     <div>
       <Select
-        placeholder="选择 ICC 配置"
+        placeholder="Choose an ICC profile"
         value={activeProfile?.name}
         onChange={(name) => {
-          const profile = allProfiles.find(p => p.name === name)
+          const profile = allProfiles.find((item) => item.name === name)
           if (profile) setActiveProfile(profile)
         }}
         style={{ width: '100%' }}
         options={[
           {
-            label: '内置 profiles',
-            options: profiles.map(p => ({
+            label: 'Built-in profiles',
+            options: profiles.map((profile) => ({
               label: (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <span style={{ fontWeight: 500 }}>{p.name}</span>
-                    <Tag color="default" style={{ marginLeft: 8 }}>{p.type.toUpperCase()}</Tag>
+                    <span style={{ fontWeight: 500 }}>{profile.name}</span>
+                    <Tag color="default" style={{ marginLeft: 8 }}>
+                      {profile.type.toUpperCase()}
+                    </Tag>
                   </div>
-                  <span style={{ color: '#999', fontSize: 12 }}>{p.description}</span>
+                  <span style={{ color: '#999', fontSize: 12 }}>{profile.description}</span>
                 </div>
               ),
-              value: p.name
+              value: profile.name
             }))
           },
-          ...(customProfiles.length > 0 ? [{
-            label: '自定义 profiles',
-            options: customProfiles.map(p => ({
-              label: (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <span style={{ fontWeight: 500 }}>{p.name}</span>
-                    <Tag color="blue" style={{ marginLeft: 8 }}>自定义</Tag>
-                    <Tag color="processing" style={{ marginLeft: 4 }}>{p.type.toUpperCase()}</Tag>
-                  </div>
-                  <Button
-                    type="text"
-                    size="small"
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={(e) => handleRemoveCustomProfile(p.name, e)}
-                  />
-                </div>
-              ),
-              value: p.name
-            }))
-          }] : [])
+          ...(customProfiles.length > 0
+            ? [
+                {
+                  label: 'Custom profiles',
+                  options: customProfiles.map((profile) => ({
+                    label: (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <span style={{ fontWeight: 500 }}>{profile.name}</span>
+                          <Tag color="blue" style={{ marginLeft: 8 }}>
+                            Custom
+                          </Tag>
+                          <Tag color="processing" style={{ marginLeft: 4 }}>
+                            {profile.type.toUpperCase()}
+                          </Tag>
+                        </div>
+                        <Button
+                          type="text"
+                          size="small"
+                          danger
+                          icon={<DeleteOutlined />}
+                          onClick={(event) => handleRemoveCustomProfile(profile.name, event)}
+                        />
+                      </div>
+                    ),
+                    value: profile.name
+                  }))
+                }
+              ]
+            : [])
         ]}
       />
+
       <div style={{ marginTop: 12 }}>
-        <Button
-          icon={<UploadOutlined />}
-          onClick={handleLoadCustomProfile}
-        >
-          加载 ICC 文件
+        <Button icon={<UploadOutlined />} onClick={handleLoadCustomProfile}>
+          Load ICC profile
         </Button>
       </div>
+
       {activeProfile && (
         <div style={{ marginTop: 12 }}>
           <Space>
-            <Text type="secondary">当前配置：</Text>
-            <Tag color={activeProfile.type === 'rgb' ? 'green' : 'orange'}>
-              {activeProfile.type.toUpperCase()}
-            </Tag>
-            {customProfiles.some(cp => cp.name === activeProfile.name) && (
-              <Tag color="blue">自定义</Tag>
-            )}
+            <Text type="secondary">Current profile:</Text>
+            <Tag color={activeProfile.type === 'rgb' ? 'green' : 'orange'}>{activeProfile.type.toUpperCase()}</Tag>
+            {customProfiles.some((profile) => profile.name === activeProfile.name) && <Tag color="blue">Custom</Tag>}
           </Space>
         </div>
       )}

@@ -1,7 +1,7 @@
 {
   "name": "printbridge",
   "version": "1.0.0",
-  "description": "连接数字媒体与印刷工程的桥梁",
+  "description": "A desktop bridge between digital media previews and print-oriented checks",
   "author": "PrintBridge Team",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -57,9 +57,10 @@
   "build": {
     "appId": "com.printbridge.app",
     "productName": "PrintBridge",
-    "copyright": "Copyright © 2026",
+    "copyright": "Copyright © 2026 PrintBridge Team",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "dist/**/*",
@@ -86,7 +87,6 @@
           ]
         }
       ],
-      "sign": false,
       "signAndEditExecutable": false
     },
     "publish": null,

@@ -1,123 +1,125 @@
 # PrintBridge
 
-> A cross-platform desktop application bridging digital media design and print engineering
+> A desktop app for bridging digital design previews and print-oriented color checks
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Electron](https://img.shields.io/badge/Electron-v28.3.3-47848F.svg)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18.2.0-61DAFB.svg)](https://reactjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.3.3-3178C6.svg)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6.svg)](https://www.typescriptlang.org/)
 
-PrintBridge helps designers and print professionals manage color consistency across digital displays and print outputs through AI-powered color analysis and print preflight detection.
+PrintBridge is a course project focused on helping designers and print learners compare screen content with likely print constraints. It combines color analysis, cross-media preview, print preflight checks, and learning resources in a single Electron desktop app.
 
-## Features
+## Primary Workflow
 
-| Module | Description | AI Enhancement |
-|--------|-------------|----------------|
-| 🎨 **Color Lab** | ICC profile selection, RGB↔CMYK conversion, soft-proofing | AI-powered profile recommendation |
-| 👁️ **Cross-Media Preview** | Multi-light source simulation (D50/D65/F), paper type preview | AI viewing condition optimization |
-| 🖨️ **Smart Print Adapter** | Resolution, color mode, bleed, and gamut detection | AI-powered problem diagnosis |
-| 📚 **Knowledge Hub** | Case library, interactive demos, quizzes | Personalized learning path |
-| 🤖 **AI Color Advisor** | DeepSeek LLM powered color analysis | Deep learning powered |
+The current baseline workflow is:
+
+1. Open `Color Lab` and import an image.
+2. Review `Analyze` and `Preview` states inside Color Lab.
+3. Switch to `Cross-Media Preview` to compare simulated output under different viewing conditions.
+4. Switch to `Smart Print Adapter` to run heuristic print-readiness checks.
+
+The verified keyboard-shortcut baseline for this workflow currently covers `Control+1`, `Control+2`, and `Control+3` on the current Windows/Linux shell path.
+
+Baseline readable workflow labels are documented in [src/renderer/constants/copy.ts](/G:/GitHub/printbridge/printbridge-master/printbridge-master/src/renderer/constants/copy.ts). This file is a documentation/reference baseline for the convergence work in Task 1, not the enforced runtime source of truth for every renderer label yet.
+
+## What It Does
+
+- `Color Lab`
+  Import an image, inspect representative colors, review approximate RGB-to-CMYK conversion results, and preview soft-proof style output.
+- `Cross-Media Preview`
+  Explore viewing-condition differences such as light source and presentation context.
+- `Smart Print Adapter`
+  Run heuristic checks for resolution, probable out-of-gamut colors, suspected missing bleed, and likely RGB workflow risks.
+- `Knowledge Hub`
+  Present reference material, demos, and learning-oriented content for the project presentation.
+
+## Important Accuracy Notes
+
+- ICC-based analysis is available only when the LittleCMS WASM engine initializes successfully.
+- Some checks are heuristic approximations rather than production-grade prepress validation.
+- AI color advice uses DeepSeek when an API key is configured; otherwise it falls back to a rule-based demo path.
 
 ## Tech Stack
 
-- **Framework**: Electron 28.3.3 + React 18.2.0 + TypeScript 5.3.3
-- **Build**: Vite 5 + electron-builder
-- **UI**: Ant Design 5 + Zustand state management
-- **Color Engine**: LittleCMS WASM
-- **AI**: DeepSeek LLM API
+- Electron 28
+- React 18
+- TypeScript 5.9
+- Vite 5
+- Ant Design
+- Zustand
+- `lcms-wasm`
+- `utif`
+- Vitest
+- Playwright
 
-## Prerequisites
+## Project Structure
 
-- Node.js 18+
-- Windows 10/11 x64 (for production build)
-
-## Quick Start
-
-### Clone and Install
-
-```bash
-git clone https://github.com/Takesen317/printbridge.git
-cd printbridge
-npm install
+```text
+src/
+  main/        Electron main process
+  preload/     Secure renderer bridge
+  renderer/    React application
+  shared/      Shared types and constants
+tests/
+  unit/        Unit tests
+  e2e/         Playwright smoke coverage
+docs/
+  diagrams/    Architecture and flow diagrams
 ```
 
-### Configure Environment
+## Development
 
-Create a `.env` file in the project root:
+```bash
+npm install
+npm run dev
+```
+
+## Verification
+
+```bash
+npm run lint
+npm run test:run
+npm run build
+```
+
+For the core workflow browser smoke test:
+
+```bash
+npx playwright test tests/e2e/app.spec.ts --project=chromium
+```
+
+The smoke coverage currently verifies the readable shell path across:
+
+1. `Color Lab`
+2. `Cross-Media Preview`
+3. `Smart Print Adapter`
+4. back to `Color Lab`
+
+Additional baseline docs:
+
+- [Known limitations](/G:/GitHub/printbridge/printbridge-master/printbridge-master/docs/known-limitations.md)
+- [Session model](/G:/GitHub/printbridge/printbridge-master/printbridge-master/docs/architecture/session-model.md)
+
+## Environment
+
+Create `.env` from `.env.example` if you want to enable the DeepSeek-backed AI advice path:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and add your DeepSeek API key:
-
-```
+```env
 VITE_DEEPSEEK_API_KEY=your_api_key_here
 ```
 
-Get your API key at: https://platform.deepseek.com/
+If no API key is present, the app still works and uses its built-in rule-based demo logic for AI advice.
 
-### Development
+## Deliverables
 
-```bash
-npm run dev
-```
-
-### Build
-
-```bash
-npm run build:win    # Windows installer + portable
-npm run build:dir    # Build unpacked directory
-```
-
-Output: `release/win-unpacked/PrintBridge.exe`
-
-## Project Structure
-
-```
-printbridge/
-├── src/
-│   ├── main/                 # Electron main process
-│   ├── preload/             # Preload scripts
-│   ├── renderer/            # React application
-│   │   ├── modules/        # Feature modules
-│   │   │   ├── color-lab/   # Color management
-│   │   │   ├── cross-preview/ # Cross-media preview
-│   │   │   ├── print-adapter/ # Print preflight
-│   │   │   └── knowledge-hub/ # Learning resources
-│   │   ├── services/       # Business logic
-│   │   ├── hooks/          # React hooks
-│   │   ├── store/          # Zustand state
-│   │   └── utils/          # Utilities
-│   └── shared/             # Shared types
-├── docs/diagrams/          # Architecture diagrams
-├── build/                  # Build resources
-└── release/                 # Build output
-```
-
-## Documentation
-
-Architecture diagrams and technical documentation are available in `docs/diagrams/`.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+- Source code for the desktop application
+- Architecture diagrams in [docs/diagrams](./docs/diagrams)
+- Unit and E2E test scaffolding for course demonstration
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- [Electron](https://www.electronjs.org/) - Cross-platform desktop framework
-- [React](https://reactjs.org/) - UI library
-- [Ant Design](https://ant.design/) - UI component library
-- [LittleCMS](https://www.littlecms.com/) - Open source color management engine
-- [DeepSeek](https://www.deepseek.com/) - AI language model support
+MIT

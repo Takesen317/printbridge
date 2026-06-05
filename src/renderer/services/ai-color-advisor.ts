@@ -1,14 +1,6 @@
-/**
- * AI Color Advisor Service
- *
- * Uses DeepSeek LLM to analyze images and recommend ICC profiles
- * for print production. This integrates AI into the color management workflow.
- */
-
-// Types for AI analysis
 export interface ImageColorData {
-  dominantColors: string[]      // Hex colors
-  brightness: number            // 0-255
+  dominantColors: string[]
+  brightness: number
   contrast: 'low' | 'medium' | 'high'
   saturation: 'low' | 'medium' | 'high'
   colorTemperature: 'warm' | 'neutral' | 'cool'
@@ -16,22 +8,30 @@ export interface ImageColorData {
   sceneType: 'photo' | 'graphic' | 'mixed' | 'unknown'
 }
 
+export type AIAdviceSource = 'deepseek' | 'rule-based'
+export type AIAdviceConfidence = 'high' | 'medium' | 'low'
+
 export interface AIColorAdvice {
-  recommendedProfile: string    // ICC profile name
+  recommendedProfile: string
   profileType: 'rgb' | 'cmyk'
   colorTemperature: 'warm' | 'neutral' | 'cool'
   saturation: 'low' | 'medium' | 'high'
   contrast: 'soft' | 'normal' | 'strong'
   reasoning: string
   printingTips: string[]
+  source: AIAdviceSource
+  confidence: AIAdviceConfidence
+  approximationNotice?: string
 }
+
+const RULE_BASED_APPROXIMATION_NOTICE =
+  'This advice comes from the built-in fallback model rather than a live LLM response.'
 
 export interface AIColorAnalysisRequest {
   imageData: ImageData
   targetUse: 'magazine' | 'brochure' | 'photo_print' | 'packaging' | 'general'
 }
 
-// Available ICC profiles for recommendation
 const ICC_PROFILES = {
   sRGB: { type: 'rgb', description: 'Standard RGB - universal for screen and web' },
   AdobeRGB: { type: 'rgb', description: 'Adobe RGB - wider gamut for photography' },
@@ -41,22 +41,24 @@ const ICC_PROFILES = {
   GRACoL2006: { type: 'cmyk', description: 'US uncoated paper - general commercial' }
 }
 
-/**
- * Extract color characteristics from image data
- */
 export function extractColorData(imageData: ImageData): ImageColorData {
   const data = imageData.data
   const pixelCount = data.length / 4
 
-  let totalR = 0, totalG = 0, totalB = 0
-  let minR = 255, maxR = 0
-  let minG = 255, maxG = 0
-  let minB = 255, maxB = 0
+  let totalR = 0
+  let totalG = 0
+  let totalB = 0
+  let minR = 255
+  let maxR = 0
+  let minG = 255
+  let maxG = 0
+  let minB = 255
+  let maxB = 0
   let saturatedPixels = 0
   let skinTonePixels = 0
-  let warmPixels = 0, coolPixels = 0
+  let warmPixels = 0
+  let coolPixels = 0
 
-  // Sample pixels (every 10th pixel for performance)
   const sampleStep = 10
   for (let i = 0; i < data.length; i += 4 * sampleStep) {
     const r = data[i]
@@ -74,17 +76,14 @@ export function extractColorData(imageData: ImageData): ImageColorData {
     minB = Math.min(minB, b)
     maxB = Math.max(maxB, b)
 
-    // Check saturation (colorfulness)
     const maxC = Math.max(r, g, b)
     const minC = Math.min(r, g, b)
     if (maxC - minC > 100) saturatedPixels++
 
-    // Check skin tones (approximate)
     if (r > 95 && g > 40 && b > 20 && r > g && r > b && Math.abs(r - g) < 35) {
       skinTonePixels++
     }
 
-    // Check color temperature
     if (r > b + 20) warmPixels++
     if (b > r + 20) coolPixels++
   }
@@ -92,21 +91,10 @@ export function extractColorData(imageData: ImageData): ImageColorData {
   const avgR = totalR / pixelCount
   const avgG = totalG / pixelCount
   const avgB = totalB / pixelCount
-
-  // Calculate brightness
-  const brightness = (0.299 * avgR + 0.587 * avgG + 0.114 * avgB)
-
-  // Calculate contrast (max difference in通道)
+  const brightness = 0.299 * avgR + 0.587 * avgG + 0.114 * avgB
   const contrastValue = Math.max(maxR - minR, maxG - minG, maxB - minB)
-
-  // Determine scene type based on color distribution
   const colorfulness = saturatedPixels / (pixelCount / sampleStep)
-  const sceneType: ImageColorData['sceneType'] =
-    colorfulness > 0.4 ? 'graphic' :
-    colorfulness > 0.15 ? 'mixed' :
-    skinTonePixels > 50 ? 'photo' : 'unknown'
 
-  // Dominant colors (simple k-means would be better but this is simplified)
   const dominantColors = [
     `#${Math.round(avgR).toString(16).padStart(2, '0')}${Math.round(avgG).toString(16).padStart(2, '0')}${Math.round(avgB).toString(16).padStart(2, '0')}`
   ]
@@ -118,13 +106,10 @@ export function extractColorData(imageData: ImageData): ImageColorData {
     saturation: colorfulness > 0.35 ? 'high' : colorfulness > 0.15 ? 'medium' : 'low',
     colorTemperature: warmPixels > coolPixels * 1.5 ? 'warm' : coolPixels > warmPixels * 1.5 ? 'cool' : 'neutral',
     hasSkinTones: skinTonePixels > 30,
-    sceneType
+    sceneType: colorfulness > 0.4 ? 'graphic' : colorfulness > 0.15 ? 'mixed' : skinTonePixels > 50 ? 'photo' : 'unknown'
   }
 }
 
-/**
- * Build prompt for DeepSeek API
- */
 function buildAnalysisPrompt(colorData: ImageColorData, targetUse: string): string {
   return `You are a professional color management consultant for print production.
 
@@ -140,23 +125,14 @@ Image Color Analysis:
 - Scene type: ${colorData.sceneType}
 
 Available ICC Profiles:
-- sRGB (RGB) - Standard for web/screen
-- Adobe RGB (RGB) - Wider gamut for photography
-- Coated FOGRA39 (CMYK) - European coated paper, premium magazines
-- Uncoated FOGRA29 (CMYK) - European uncoated paper
-- Japan Color 2001 Coated (CMYK) - Japanese standard
-- GRACoL2006 (CMYK) - US uncoated paper
+- sRGB (RGB)
+- Adobe RGB (RGB)
+- Coated FOGRA39 (CMYK)
+- Uncoated FOGRA29 (CMYK)
+- Japan Color 2001 Coated (CMYK)
+- GRACoL2006 (CMYK)
 
-Based on the image characteristics and printing use case, provide:
-1. Recommended ICC profile (from the list above)
-2. Profile type (rgb or cmyk)
-3. Color temperature adjustment if needed
-4. Saturation adjustment if needed
-5. Contrast adjustment if needed
-6. Brief reasoning for the recommendation
-7. 2-3 practical printing tips
-
-Respond in JSON format:
+Respond in JSON with:
 {
   "recommendedProfile": "Profile Name",
   "profileType": "rgb" or "cmyk",
@@ -168,12 +144,7 @@ Respond in JSON format:
 }`
 }
 
-/**
- * Simulated AI analysis (for demo without API key)
- * In production, this would call the actual DeepSeek API
- */
 function simulateAIAnalysis(colorData: ImageColorData, targetUse: string): AIColorAdvice {
-  // Smart rule-based recommendation for demo
   let recommendedProfile = 'sRGB'
   let profileType: 'rgb' | 'cmyk' = 'rgb'
 
@@ -182,18 +153,13 @@ function simulateAIAnalysis(colorData: ImageColorData, targetUse: string): AICol
       recommendedProfile = 'Coated FOGRA39'
       profileType = 'cmyk'
     } else if (colorData.hasSkinTones) {
-      recommendedProfile = 'Adobe RGB'  // Better skin tone reproduction
-      profileType = 'rgb'
+      recommendedProfile = 'Adobe RGB'
     } else {
       recommendedProfile = 'Coated FOGRA39'
       profileType = 'cmyk'
     }
   } else if (targetUse === 'photo_print') {
-    if (colorData.hasSkinTones) {
-      recommendedProfile = 'Adobe RGB'
-    } else {
-      recommendedProfile = 'sRGB'
-    }
+    recommendedProfile = colorData.hasSkinTones ? 'Adobe RGB' : 'sRGB'
   } else if (targetUse === 'packaging') {
     recommendedProfile = 'Japan Color 2001 Coated'
     profileType = 'cmyk'
@@ -202,18 +168,10 @@ function simulateAIAnalysis(colorData: ImageColorData, targetUse: string): AICol
   }
 
   const printingTips: string[] = []
-  if (colorData.hasSkinTones) {
-    printingTips.push('Pay attention to skin tone reproduction - consider a proof before full print')
-  }
-  if (colorData.contrast === 'high') {
-    printingTips.push('High contrast image may lose detail in shadows - use soft proofing')
-  }
-  if (colorData.saturation === 'high') {
-    printingTips.push('Saturated colors may appear less vibrant in CMYK - check gamut warning')
-  }
-  if (colorData.colorTemperature === 'warm') {
-    printingTips.push('Warm tones print well on coated paper - consider FOGRA39')
-  }
+  if (colorData.hasSkinTones) printingTips.push('Pay attention to skin tone reproduction and consider a proof before final print.')
+  if (colorData.contrast === 'high') printingTips.push('High contrast may lose detail in shadows, so soft-proof the darkest areas.')
+  if (colorData.saturation === 'high') printingTips.push('Very saturated colors may lose intensity in CMYK, so inspect gamut-sensitive regions.')
+  if (colorData.colorTemperature === 'warm') printingTips.push('Warm tones usually benefit from coated-paper workflows such as FOGRA39.')
 
   return {
     recommendedProfile,
@@ -221,26 +179,19 @@ function simulateAIAnalysis(colorData: ImageColorData, targetUse: string): AICol
     colorTemperature: colorData.colorTemperature,
     saturation: colorData.saturation,
     contrast: colorData.contrast === 'high' ? 'strong' : colorData.contrast === 'medium' ? 'normal' : 'soft',
-    reasoning: `Based on ${colorData.sceneType} content with ${colorData.saturation} saturation and ${colorData.contrast} contrast, ${recommendedProfile} provides the best color management for ${targetUse} printing.`,
-    printingTips: printingTips.length > 0 ? printingTips : ['Use soft proofing to preview colors before printing']
+    reasoning: `Rule-based analysis suggests ${recommendedProfile} for ${targetUse} output because the image looks ${colorData.sceneType}, ${colorData.saturation} in saturation, and ${colorData.contrast} in contrast.`,
+    printingTips: printingTips.length > 0 ? printingTips : ['Use soft proofing to preview colors before printing.'],
+    source: 'rule-based',
+    confidence: 'low',
+    approximationNotice: RULE_BASED_APPROXIMATION_NOTICE
   }
 }
 
-/**
- * Analyze image and get AI color advice
- *
- * Note: This implementation uses simulated AI for demonstration.
- * To use real DeepSeek AI, set VITE_DEEPSEEK_API_KEY in environment
- * and the function will call the actual API.
- */
 export async function analyzeImageWithAI(
   imageData: ImageData,
   targetUse: AIColorAnalysisRequest['targetUse'] = 'general'
 ): Promise<AIColorAdvice> {
-  // Check for API key
   const apiKey = import.meta.env.VITE_DEEPSEEK_API_KEY
-
-  // Extract color data from image
   const colorData = extractColorData(imageData)
 
   const targetUseLabels = {
@@ -251,14 +202,13 @@ export async function analyzeImageWithAI(
     general: 'general purpose printing'
   }
 
-  // If API key exists, use real DeepSeek API
   if (apiKey) {
     try {
       const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
+          Authorization: `Bearer ${apiKey}`
         },
         body: JSON.stringify({
           model: 'deepseek-chat',
@@ -279,9 +229,7 @@ export async function analyzeImageWithAI(
       if (response.ok) {
         const data = await response.json()
         const content = data.choices?.[0]?.message?.content
-
         if (content) {
-          // Parse JSON response
           const advice = JSON.parse(content.replace(/```json\n?/g, '').replace(/```\n?/g, ''))
           return {
             recommendedProfile: advice.recommendedProfile,
@@ -290,23 +238,25 @@ export async function analyzeImageWithAI(
             saturation: advice.saturation,
             contrast: advice.contrast,
             reasoning: advice.reasoning,
-            printingTips: advice.printingTips
+            printingTips: advice.printingTips,
+            source: 'deepseek',
+            confidence: 'medium',
+            approximationNotice: undefined
           }
         }
       }
     } catch (error) {
-      console.warn('DeepSeek API call failed, using simulation:', error)
+      console.warn('DeepSeek API call failed, falling back to rule-based advice:', error)
     }
   }
 
-  // Fallback to simulation
-  console.info('Using simulated AI analysis. Set VITE_DEEPSEEK_API_KEY for real AI analysis.')
   return simulateAIAnalysis(colorData, targetUse)
 }
 
-/**
- * Get all available ICC profiles
- */
 export function getAvailableProfilesForAI(): typeof ICC_PROFILES {
   return ICC_PROFILES
+}
+
+export function getRuleBasedApproximationNotice(): string {
+  return RULE_BASED_APPROXIMATION_NOTICE
 }

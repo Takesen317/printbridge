@@ -11,9 +11,7 @@ export const ImageSkeleton = ({ height = 300 }: ImageSkeletonProps) => (
   </Card>
 )
 
-interface AnalysisSkeletonProps {}
-
-export const AnalysisSkeleton = (_props: AnalysisSkeletonProps) => (
+export const AnalysisSkeleton = () => (
   <Card title="色彩分析" style={{ borderRadius: 'var(--radius-lg)' }}>
     <Skeleton active paragraph={{ rows: 4 }} />
   </Card>
