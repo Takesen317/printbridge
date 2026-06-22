@@ -80,6 +80,64 @@ describe('image-processor', () => {
       })
     })
 
+    it('produces different output for materially different viewing distance and resolution settings', () => {
+      const width = 32
+      const height = 32
+      const data = new Uint8ClampedArray(width * height * 4)
+
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const idx = (y * width + x) * 4
+          const value = (x + y) % 2 === 0 ? 0 : 255
+          data[idx] = value
+          data[idx + 1] = value
+          data[idx + 2] = value
+          data[idx + 3] = 255
+        }
+      }
+
+      const input = new ImageData(data, width, height, { colorSpace: 'srgb' })
+      const sharpResult = simulatePrintPreview(input, {
+        ...defaultOptions,
+        viewingDistance: 150,
+        resolution: 600
+      })
+      const softResult = simulatePrintPreview(input, {
+        ...defaultOptions,
+        viewingDistance: 500,
+        resolution: 72
+      })
+
+      expect(Array.from(sharpResult.data)).not.toEqual(Array.from(softResult.data))
+    })
+
+    it('makes viewing distance visibly affect a high-contrast image', () => {
+      const input = new ImageData(
+        new Uint8ClampedArray([
+          0, 0, 0, 255, 255, 255, 255, 255,
+          255, 255, 255, 255, 0, 0, 0, 255
+        ]),
+        2,
+        2
+      )
+
+      const nearResult = simulatePrintPreview(input, {
+        ...defaultOptions,
+        viewingDistance: 150,
+        resolution: 600
+      })
+      const farResult = simulatePrintPreview(input, {
+        ...defaultOptions,
+        viewingDistance: 500,
+        resolution: 72
+      })
+
+      const nearAverage = nearResult.data[0] + nearResult.data[1] + nearResult.data[2]
+      const farAverage = farResult.data[0] + farResult.data[1] + farResult.data[2]
+
+      expect(Math.abs(nearAverage - farAverage)).toBeGreaterThan(10)
+    })
+
     it('handles RGB color mode', () => {
       const input = createTestImageData(20, 20)
       const result = simulatePrintPreview(input, { ...defaultOptions, colorMode: 'rgb' })

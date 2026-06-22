@@ -1,16 +1,20 @@
 import { UploadOutlined } from '@ant-design/icons'
-import { Button, Card, message } from 'antd'
+import { Button, Card, Segmented, message } from 'antd'
 import * as utif from 'utif'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MenuAction } from '../../../shared/constants/menu'
 import { ImageSkeleton } from '../../components/Skeleton'
+import { translate } from '../../constants/i18n'
 import { analyzeColor, getAvailableProfiles, initializeColorEngine } from '../../services/color-engine'
 import type { ProjectViewMode } from '../../services/project-serializer'
 import { useColorStore } from '../../store/color'
+import { useLocaleStore } from '../../store/locale'
 import { useProjectStore } from '../../store/project'
+import { toRealImageData } from '../../utils/image-utils'
 import { validateImageDimensions } from '../../utils/image-utils'
 import ColorAnalyzer from './components/ColorAnalyzer'
 import ColorLabHeader from './components/ColorLabHeader'
+import ColorLabMainPreview from './components/ColorLabMainPreview'
 import {
   ColorLabNavigationToolbar,
   ColorLabOverlayToolbar,
@@ -30,8 +34,8 @@ export default function ColorLab() {
   const [imageData, setImageData] = useState<ImageData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
 
+  const { locale, setLocale } = useLocaleStore()
   const { activeProfile, setActiveProfile, setAnalysis } = useColorStore()
   const {
     projectName,
@@ -51,6 +55,7 @@ export default function ColorLab() {
 
   const profiles = getAvailableProfiles()
   const effectiveImage = imageData || originalImage
+  const drawableImage = toRealImageData(effectiveImage)
   const viewMode: ProjectViewMode = lastViewMode
 
   const loadImageFromBuffer = useCallback((buffer: ArrayBuffer, filePath?: string) => {
@@ -61,9 +66,9 @@ export default function ColorLab() {
     img.onload = () => {
       const validation = validateImageDimensions(img.naturalWidth, img.naturalHeight)
       if (!validation.valid) {
-        message.error(`Invalid image dimensions: ${validation.reason}`)
+        message.error(translate(locale, 'message.invalidImageDimensions', { reason: validation.reason ?? 'unknown' }))
         if (validation.suggestedScale && validation.suggestedScale < 1) {
-          message.warning(`Suggested scale: ${Math.round(validation.suggestedScale * 100)}% or smaller.`)
+          message.warning(translate(locale, 'message.suggestedScale', { scale: Math.round(validation.suggestedScale * 100) }))
         }
         setIsLoading(false)
         return
@@ -74,7 +79,7 @@ export default function ColorLab() {
       tempCanvas.height = img.naturalHeight
       const ctx = tempCanvas.getContext('2d')
       if (!ctx) {
-        message.error('Unable to create an image processing context.')
+        message.error(translate(locale, 'message.imageContextUnavailable'))
         setIsLoading(false)
         return
       }
@@ -86,16 +91,16 @@ export default function ColorLab() {
       setProcessedImage(nextImage)
       setLastViewMode('import')
       setIsLoading(false)
-      message.success('Image imported.')
+      message.success(translate(locale, 'message.imageImported'))
     }
 
     img.onerror = () => {
-      message.error('Failed to load the image.')
+      message.error(translate(locale, 'message.imageLoadFailed'))
       setIsLoading(false)
     }
 
     img.src = URL.createObjectURL(blob)
-  }, [setLastViewMode, setOriginalImage, setProcessedImage])
+  }, [locale, setLastViewMode, setOriginalImage, setProcessedImage])
 
   const handleOpenFile = useCallback(async () => {
     if (window.electronAPI?.openFile) {
@@ -116,7 +121,7 @@ export default function ColorLab() {
   const handleExport = useCallback(() => {
     const sourceImage = exportSource === 'preview' && processedImage ? processedImage : effectiveImage
     if (!sourceImage) {
-      message.warning('Import an image before exporting.')
+      message.warning(translate(locale, 'message.importBeforeExport'))
       return
     }
 
@@ -126,7 +131,7 @@ export default function ColorLab() {
 
       if (window.electronAPI?.saveFile) {
         window.electronAPI.saveFile(new Uint8Array(tiffBuffer), { extension: 'tiff' }).then((success) => {
-          message[success ? 'success' : 'error'](success ? 'TIFF export completed.' : 'Export failed.')
+          message[success ? 'success' : 'error'](success ? translate(locale, 'message.tiffExportCompleted') : translate(locale, 'message.exportFailed'))
         })
       } else {
         const blob = new Blob([tiffBuffer], { type: 'image/tiff' })
@@ -136,7 +141,7 @@ export default function ColorLab() {
         anchor.download = `printbridge-export-${Date.now()}.tiff`
         anchor.click()
         URL.revokeObjectURL(url)
-        message.success('TIFF exported.')
+        message.success(translate(locale, 'message.tiffExported'))
       }
       return
     }
@@ -146,7 +151,7 @@ export default function ColorLab() {
     canvas.height = sourceImage.height
     const ctx = canvas.getContext('2d')
     if (!ctx) {
-      message.error('Unable to create an export canvas.')
+      message.error(translate(locale, 'message.exportCanvasUnavailable'))
       return
     }
 
@@ -154,14 +159,14 @@ export default function ColorLab() {
     const mimeType = exportFormat === 'jpeg' ? 'image/jpeg' : 'image/png'
     canvas.toBlob((blob) => {
       if (!blob) {
-        message.error('Export failed.')
+        message.error(translate(locale, 'message.exportFailed'))
         return
       }
 
       if (window.electronAPI?.saveFile) {
         blob.arrayBuffer().then((buffer) => {
           window.electronAPI?.saveFile(new Uint8Array(buffer), { extension: exportFormat }).then((success) => {
-            message[success ? 'success' : 'error'](success ? 'Image export completed.' : 'Export failed.')
+            message[success ? 'success' : 'error'](success ? translate(locale, 'message.imageExportCompleted') : translate(locale, 'message.exportFailed'))
           })
         })
       } else {
@@ -171,15 +176,15 @@ export default function ColorLab() {
         anchor.download = `printbridge-export-${Date.now()}.${exportFormat}`
         anchor.click()
         URL.revokeObjectURL(url)
-        message.success('Image exported.')
+        message.success(translate(locale, 'message.imageExported'))
       }
     }, mimeType)
-  }, [effectiveImage, exportFormat, exportSource, processedImage])
+  }, [effectiveImage, exportFormat, exportSource, locale, processedImage])
 
   const handleAnalyze = useCallback(() => {
     const profile = activeProfile || profiles[0]
     if (!effectiveImage || !profile) {
-      message.warning('Import an image and choose a profile first.')
+      message.warning(translate(locale, 'message.importAndChooseProfile'))
       return
     }
 
@@ -189,17 +194,7 @@ export default function ColorLab() {
 
     setAnalysis(analyzeColor(effectiveImage, profile))
     setLastViewMode('analyze')
-  }, [activeProfile, effectiveImage, profiles, setActiveProfile, setAnalysis, setLastViewMode])
-
-  useEffect(() => {
-    if (!canvasRef.current || !(effectiveImage instanceof ImageData)) return
-    canvasRef.current.width = effectiveImage.width
-    canvasRef.current.height = effectiveImage.height
-    const ctx = canvasRef.current.getContext('2d')
-    if (ctx) {
-      ctx.putImageData(effectiveImage, 0, 0)
-    }
-  }, [effectiveImage])
+  }, [activeProfile, effectiveImage, locale, profiles, setActiveProfile, setAnalysis, setLastViewMode])
 
   useEffect(() => {
     initializeColorEngine().then((result) => {
@@ -218,52 +213,63 @@ export default function ColorLab() {
         handleExport()
       } else if (action === 'save-project') {
         const success = await saveProjectToFile()
-        message[success ? 'success' : 'error'](success ? 'Project saved.' : 'Failed to save project.')
+        message[success ? 'success' : 'error'](success ? translate(locale, 'message.projectSaved') : translate(locale, 'message.projectSaveFailed'))
       } else if (action === 'load-project') {
         const success = await loadProjectFromFile()
         if (success) {
           setImageData(useProjectStore.getState().originalImage)
-          message.success('Project loaded.')
+          message.success(translate(locale, 'message.projectLoaded'))
         } else {
-          message.error('Failed to load project.')
+          message.error(translate(locale, 'message.projectLoadFailed'))
         }
       }
     }
 
     window.addEventListener('printbridge:menu-action', handleMenuAction as EventListener)
     return () => window.removeEventListener('printbridge:menu-action', handleMenuAction as EventListener)
-  }, [handleExport, handleOpenFile, loadProjectFromFile, saveProjectToFile])
+  }, [handleExport, handleOpenFile, loadProjectFromFile, locale, saveProjectToFile])
 
   const handleOpenProject = useCallback(() => {
     return loadProjectFromFile().then((success) => {
       if (success) {
         setImageData(useProjectStore.getState().originalImage)
-        message.success('Project loaded.')
+        message.success(translate(locale, 'message.projectLoaded'))
       } else {
-        message.error('Failed to load project.')
+        message.error(translate(locale, 'message.projectLoadFailed'))
       }
     })
-  }, [loadProjectFromFile])
+  }, [loadProjectFromFile, locale])
 
   const handleSaveProject = useCallback(() => {
-    return saveProjectToFile().then((success) => message[success ? 'success' : 'error'](success ? 'Project saved.' : 'Failed to save project.'))
-  }, [saveProjectToFile])
+    return saveProjectToFile().then((success) =>
+      message[success ? 'success' : 'error'](success ? translate(locale, 'message.projectSaved') : translate(locale, 'message.projectSaveFailed'))
+    )
+  }, [locale, saveProjectToFile])
 
   return (
     <div className="module-content">
       <ColorLabHeader />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <Segmented
+          value={locale}
+          onChange={(value) => setLocale(value as 'zh-CN' | 'en-US')}
+          options={[
+            { label: translate(locale, 'layout.language.zh'), value: 'zh-CN' },
+            { label: translate(locale, 'layout.language.en'), value: 'en-US' }
+          ]}
+        />
+      </div>
       <ColorLabNavigationToolbar onViewModeChange={setLastViewMode} viewMode={viewMode} />
 
       <Card
         style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-md)', border: '1px solid var(--color-border-light)' }}
         styles={{ body: { padding: 0 } }}
       >
-        <div style={{ padding: 32, textAlign: 'center', background: effectiveImage ? 'transparent' : 'var(--color-bg)', borderRadius: 'var(--radius-lg)' }}>
+        <div style={{ padding: 32, textAlign: 'center', background: drawableImage ? 'transparent' : 'var(--color-bg)', borderRadius: 'var(--radius-lg)' }}>
           {isLoading ? (
             <ImageSkeleton height={300} />
-          ) : effectiveImage ? (
-            <div style={{ position: 'relative', borderRadius: 'var(--radius-md)', overflow: 'hidden', boxShadow: 'var(--shadow-lg)' }}>
-              <canvas ref={canvasRef} style={{ display: 'block', maxWidth: '100%', maxHeight: 400, objectFit: 'contain' }} />
+          ) : drawableImage ? (
+            <ColorLabMainPreview imageData={drawableImage}>
               <ColorLabOverlayToolbar
                 exportFormat={exportFormat}
                 exportSource={exportSource}
@@ -272,7 +278,7 @@ export default function ColorLab() {
                 onExportSourceChange={setExportSource}
                 onReplace={handleOpenFile}
               />
-            </div>
+            </ColorLabMainPreview>
           ) : (
             <div>
               <div
@@ -289,10 +295,10 @@ export default function ColorLab() {
               >
                 <UploadOutlined style={{ fontSize: 32, color: 'var(--color-primary)' }} />
               </div>
-              <h3 style={{ margin: '0 0 8px', color: 'var(--color-text-primary)' }}>Import image</h3>
-              <p style={{ color: 'var(--color-text-secondary)', margin: '0 0 20px' }}>Supports PNG, JPG, TIFF, and other common bitmap formats.</p>
+              <h3 style={{ margin: '0 0 8px', color: 'var(--color-text-primary)' }}>{translate(locale, 'colorLab.importCardTitle')}</h3>
+              <p style={{ color: 'var(--color-text-secondary)', margin: '0 0 20px' }}>{translate(locale, 'colorLab.importCardDescription')}</p>
               <Button type="primary" size="large" icon={<UploadOutlined />} onClick={handleOpenFile} style={{ borderRadius: 'var(--radius-md)', height: 44, paddingLeft: 24, paddingRight: 24 }}>
-                Choose file
+                {translate(locale, 'colorLab.chooseFile')}
               </Button>
             </div>
           )}
@@ -313,8 +319,8 @@ export default function ColorLab() {
         />
       </Card>
 
-      {effectiveImage && (
-        <Card title="Project and ICC configuration" style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', marginTop: 16 }}>
+      {drawableImage && (
+        <Card title={translate(locale, 'colorLab.project.config')} style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', marginTop: 16 }}>
           <ColorLabProjectToolbar
             onAnalyze={handleAnalyze}
             onOpenProject={handleOpenProject}
@@ -328,14 +334,14 @@ export default function ColorLab() {
       )}
 
       {viewMode === 'analyze' && (
-        <Card title="Analysis result" style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', marginTop: 16 }}>
+        <Card title={translate(locale, 'colorLab.analysisResult')} style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', marginTop: 16 }}>
           <ColorAnalyzer />
         </Card>
       )}
 
-      {(viewMode === 'preview' || (viewMode === 'import' && effectiveImage)) && (
-        <Card title="Soft-proof preview" style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', marginTop: 16 }}>
-          <SoftProofPreview originalImageData={effectiveImage || undefined} proofImageData={effectiveImage || undefined} />
+      {(viewMode === 'preview' || (viewMode === 'import' && drawableImage)) && (
+        <Card title={translate(locale, 'colorLab.softProofCard')} style={{ borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', marginTop: 16 }}>
+          <SoftProofPreview originalImageData={drawableImage || undefined} proofImageData={drawableImage || undefined} />
         </Card>
       )}
     </div>

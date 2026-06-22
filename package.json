@@ -57,11 +57,18 @@
   "build": {
     "appId": "com.printbridge.app",
     "productName": "PrintBridge",
+    "icon": "build/icon",
     "copyright": "Copyright © 2026 PrintBridge Team",
     "directories": {
       "output": "release",
       "buildResources": "build"
     },
+    "extraResources": [
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
+      }
+    ],
     "files": [
       "dist/**/*",
       "dist-electron/**/*"
@@ -79,6 +86,7 @@
       "category": "public.app-category.graphics-design"
     },
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "portable",

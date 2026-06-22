@@ -8,7 +8,7 @@ describe('preflight-messages', () => {
       detail: 'Estimated output resolution is about 72 DPI.'
     })
 
-    expect(description).toContain('Confirmed by deterministic checks.')
+    expect(description).toContain('Confirmed by a deterministic check.')
     expect(description).toContain('Estimated output resolution is about 72 DPI.')
   })
 
@@ -19,8 +19,8 @@ describe('preflight-messages', () => {
       detail: '12.4% of sampled pixels appear to exceed the target print gamut.'
     })
 
-    expect(description).toContain('Flagged by a heuristic check')
-    expect(description).toContain('confidence is moderate')
+    expect(description).toContain('Marked by a heuristic check')
+    expect(description).toContain('confidence is medium')
     expect(description).toContain('12.4% of sampled pixels appear to exceed the target print gamut.')
   })
 
@@ -31,8 +31,8 @@ describe('preflight-messages', () => {
       detail: 'Edge analysis suggests likely missing bleed.'
     })
 
-    expect(description).toContain('Flagged by a heuristic check')
-    expect(description).toContain('still an estimate')
+    expect(description).toContain('Marked by a heuristic check')
+    expect(description).toContain('confidence remains high')
     expect(description).toContain('Edge analysis suggests likely missing bleed.')
   })
 
@@ -43,8 +43,8 @@ describe('preflight-messages', () => {
       detail: 'Profile metadata suggests an RGB workflow.'
     })
 
-    expect(description).toContain('Advisory only')
-    expect(description).toContain('signal is strong')
+    expect(description).toContain('For reference only')
+    expect(description).toContain('current signals are strong')
     expect(description).toContain('Profile metadata suggests an RGB workflow.')
   })
 
@@ -55,8 +55,8 @@ describe('preflight-messages', () => {
       detail: 'Metadata hints at a non-default rendering intent.'
     })
 
-    expect(description).toContain('Advisory only')
-    expect(description).toContain('review is still recommended')
+    expect(description).toContain('For reference only')
+    expect(description).toContain('manual review is still recommended')
     expect(description).toContain('Metadata hints at a non-default rendering intent.')
   })
 
@@ -67,7 +67,7 @@ describe('preflight-messages', () => {
       detail: 'Pixel distribution suggests RGB-like content.'
     })
 
-    expect(description).toContain('Advisory only')
+    expect(description).toContain('For reference only')
     expect(description).toContain('confidence is limited')
     expect(description).toContain('Pixel distribution suggests RGB-like content.')
   })
@@ -78,7 +78,20 @@ describe('preflight-messages', () => {
       detail: 'Resolution is below the target output threshold.'
     })
 
-    expect(description).toContain('Confirmed by deterministic checks.')
+    expect(description).toContain('Confirmed by a deterministic check.')
     expect(description).not.toContain('confidence')
+  })
+
+  it('formats deterministic descriptions in Chinese when requested', () => {
+    const description = formatPreflightDescription(
+      {
+        category: 'deterministic',
+        detail: '输出分辨率约为 72 DPI。'
+      },
+      'zh-CN'
+    )
+
+    expect(description).toContain('由确定性检查确认。')
+    expect(description).toContain('输出分辨率约为 72 DPI。')
   })
 })

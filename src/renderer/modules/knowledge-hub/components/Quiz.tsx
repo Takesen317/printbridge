@@ -133,12 +133,7 @@ export default function Quiz() {
           <Text style={{ fontSize: 16 }}>{currentQuestion.question}</Text>
         </div>
 
-        <Radio.Group
-          value={selectedAnswer}
-          onChange={(event) => setSelectedAnswer(event.target.value)}
-          disabled={showResult}
-          style={{ width: '100%' }}
-        >
+        <Radio.Group value={selectedAnswer} onChange={(event) => setSelectedAnswer(event.target.value)} disabled={showResult} style={{ width: '100%' }}>
           <Space direction="vertical" style={{ width: '100%' }}>
             {currentQuestion.options.map((option, index) => (
               <Radio key={index} value={index} style={{ fontSize: 16 }}>

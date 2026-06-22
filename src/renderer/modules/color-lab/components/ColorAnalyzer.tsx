@@ -8,7 +8,7 @@ export default function ColorAnalyzer() {
 
   if (!analysis) {
     return (
-      <Card title="色彩分析">
+      <Card title="颜色分析">
         <div style={{ textAlign: 'center', color: '#999' }}>请先导入图像并执行分析。</div>
       </Card>
     )
@@ -17,7 +17,7 @@ export default function ColorAnalyzer() {
   const { representativeColor, convertedColor, averageDeltaE, maxDeltaE, isInGamut, inGamutPercentage, sampleCount } = analysis
 
   return (
-    <Card title="色彩分析">
+    <Card title="颜色分析">
       {iccEngineStatus === 'degraded' && (
         <Alert
           type="warning"
@@ -49,7 +49,7 @@ export default function ColorAnalyzer() {
 
       <Row gutter={16}>
         <Col span={12}>
-          <Statistic title="代表色 (RGB)" value={`RGB(${representativeColor.r}, ${representativeColor.g}, ${representativeColor.b})`} />
+          <Statistic title="代表颜色 (RGB)" value={`RGB(${representativeColor.r}, ${representativeColor.g}, ${representativeColor.b})`} />
           <div
             style={{
               width: '100%',
@@ -111,7 +111,7 @@ export default function ColorAnalyzer() {
         <Col span={12}>
           <Statistic
             title="整体判断"
-            value={isInGamut ? '总体可控' : '存在风险'}
+            value={isInGamut ? '整体可控' : '存在风险'}
             suffix={<Tag color={isInGamut ? 'green' : 'orange'}>{isInGamut ? 'OK' : 'CHECK'}</Tag>}
           />
         </Col>

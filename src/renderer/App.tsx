@@ -1,11 +1,13 @@
 import { Component, type ReactNode, useEffect, useState } from 'react'
+import type { MenuAction } from '../shared/constants/menu'
 import BasicLayout from './components/Layout/BasicLayout'
-import { MODULE_CONFIG, type ModuleType } from './config/modules'
+import { useModuleConfig, type ModuleType } from './config/modules'
+import { translate } from './constants/i18n'
+import ColorLab from './modules/color-lab/ColorLab'
 import CrossPreview from './modules/cross-preview/CrossPreview'
 import KnowledgeHub from './modules/knowledge-hub/KnowledgeHub'
 import PrintAdapter from './modules/print-adapter/PrintAdapter'
-import ColorLab from './modules/color-lab/ColorLab'
-import type { MenuAction } from '../shared/constants/menu'
+import { useLocaleStore } from './store/locale'
 
 interface Props {
   children: ReactNode
@@ -16,10 +18,14 @@ interface State {
   error: Error | null
 }
 
+interface ErrorBoundaryProps extends Props {
+  locale: 'zh-CN' | 'en-US'
+}
+
 const COLOR_LAB_ACTIONS: MenuAction[] = ['import-image', 'export-image']
 
-class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
+class ErrorBoundary extends Component<ErrorBoundaryProps, State> {
+  constructor(props: ErrorBoundaryProps) {
     super(props)
     this.state = { hasError: false, error: null }
   }
@@ -36,9 +42,9 @@ class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div style={{ padding: 40, textAlign: 'center' }}>
-          <h2>渲染出错</h2>
+          <h2>{translate(this.props.locale, 'app.errorTitle')}</h2>
           <p style={{ color: '#666' }}>{this.state.error?.message}</p>
-          <button onClick={() => window.location.reload()}>重新加载</button>
+          <button onClick={() => window.location.reload()}>{translate(this.props.locale, 'app.reload')}</button>
         </div>
       )
     }
@@ -49,7 +55,10 @@ class ErrorBoundary extends Component<Props, State> {
 
 function App() {
   const [activeModule, setActiveModule] = useState<ModuleType>('color-lab')
-  const safeActiveModule = MODULE_CONFIG.some((module) => module.key === activeModule) ? activeModule : 'color-lab'
+  const locale = useLocaleStore((state) => state.locale)
+  const moduleConfig = useModuleConfig()
+
+  const safeActiveModule = moduleConfig.some((module) => module.key === activeModule) ? activeModule : 'color-lab'
 
   const emitMenuAction = (action: MenuAction) => {
     window.dispatchEvent(new CustomEvent<MenuAction>('printbridge:menu-action', { detail: action }))
@@ -93,15 +102,15 @@ function App() {
       if ((event.ctrlKey || event.metaKey) && event.key >= '1' && event.key <= '4') {
         event.preventDefault()
         const index = parseInt(event.key, 10) - 1
-        if (MODULE_CONFIG[index]) {
-          setActiveModule(MODULE_CONFIG[index].key)
+        if (moduleConfig[index]) {
+          setActiveModule(moduleConfig[index].key)
         }
       }
     }
 
     window.addEventListener('keydown', handleKeydown)
     return () => window.removeEventListener('keydown', handleKeydown)
-  }, [])
+  }, [moduleConfig])
 
   const renderModule = () => {
     switch (safeActiveModule) {
@@ -119,7 +128,7 @@ function App() {
   }
 
   return (
-    <ErrorBoundary>
+    <ErrorBoundary locale={locale}>
       <BasicLayout activeModule={safeActiveModule} onModuleChange={setActiveModule}>
         {renderModule()}
       </BasicLayout>

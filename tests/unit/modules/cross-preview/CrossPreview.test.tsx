@@ -4,12 +4,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CrossPreview from '../../../../src/renderer/modules/cross-preview/CrossPreview'
 import CrossPreviewCanvas from '../../../../src/renderer/modules/cross-preview/components/CrossPreviewCanvas'
 import CrossPreviewHeader from '../../../../src/renderer/modules/cross-preview/components/CrossPreviewHeader'
+import { useLocaleStore } from '../../../../src/renderer/store/locale'
 import { useProjectStore } from '../../../../src/renderer/store/project'
 
-const { processImage, messageSuccess, messageError } = vi.hoisted(() => ({
+const { processImage, messageSuccess, messageError, workerState } = vi.hoisted(() => ({
   processImage: vi.fn(),
   messageSuccess: vi.fn(),
-  messageError: vi.fn()
+  messageError: vi.fn(),
+  workerState: {
+    isProcessing: false,
+    error: null as string | null
+  }
 }))
 
 vi.mock('antd', () => {
@@ -40,6 +45,7 @@ vi.mock('antd', () => {
       </button>
     ),
     Card,
+    Spin: () => <span>Spinner</span>,
     Tabs,
     message: {
       success: messageSuccess,
@@ -54,7 +60,9 @@ vi.mock('@ant-design/icons', () => ({
 
 vi.mock('../../../../src/renderer/hooks/useImageProcessorWorker', () => ({
   useImageProcessorWorker: () => ({
-    processImage
+    processImage,
+    isProcessing: workerState.isProcessing,
+    error: workerState.error
   })
 }))
 
@@ -86,6 +94,9 @@ describe('CrossPreview', () => {
     processImage.mockReset()
     messageSuccess.mockReset()
     messageError.mockReset()
+    workerState.isProcessing = false
+    workerState.error = null
+    useLocaleStore.setState({ locale: 'zh-CN' })
 
     useProjectStore.setState({
       projectName: 'Demo project',
@@ -126,16 +137,16 @@ describe('CrossPreview', () => {
     container.remove()
   })
 
-  it('renders the readable preview header copy', async () => {
+  it('renders the localized preview header copy', async () => {
     await act(async () => {
       root.render(<CrossPreviewHeader />)
     })
 
     expect(container.textContent).toContain('Cross-Media Preview')
-    expect(container.textContent).toContain('Compare on-screen content with simulated print-style output under different viewing conditions.')
+    expect(container.textContent).toContain('比较屏幕内容与模拟印刷输出在不同观察条件下的差异。')
   })
 
-  it('renders the readable preview canvas controls', async () => {
+  it('renders the localized preview canvas controls', async () => {
     const image = new ImageData(new Uint8ClampedArray([0, 0, 0, 255]), 1, 1)
 
     await act(async () => {
@@ -149,9 +160,22 @@ describe('CrossPreview', () => {
       )
     })
 
-    expect(container.textContent).toContain('Side by side')
-    expect(container.textContent).toContain('Overlay')
-    expect(container.textContent).toContain('Refresh preview')
+    expect(container.textContent).toContain('并排对比')
+    expect(container.textContent).toContain('叠加对比')
+    expect(container.textContent).toContain('刷新预览')
+  })
+
+  it('shows a processing notice while preview recomputation is pending', async () => {
+    const image = new ImageData(new Uint8ClampedArray([0, 0, 0, 255]), 1, 1)
+    workerState.isProcessing = true
+    processImage.mockImplementation(() => new Promise(() => undefined))
+    useProjectStore.setState({ originalImage: image, processedImage: image })
+
+    await act(async () => {
+      root.render(<CrossPreview />)
+    })
+
+    expect(container.textContent).toContain('正在更新预览')
   })
 
   it('renders the preview shell with supporting panels', async () => {
@@ -173,7 +197,7 @@ describe('CrossPreview', () => {
       root.render(<CrossPreview />)
     })
 
-    const refreshButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === 'Refresh preview')
+    const refreshButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '刷新预览')
 
     expect(refreshButton?.hasAttribute('disabled')).toBe(true)
     expect(processImage).not.toHaveBeenCalled()
@@ -189,7 +213,7 @@ describe('CrossPreview', () => {
       root.render(<CrossPreview />)
     })
 
-    const refreshButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === 'Refresh preview')
+    const refreshButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '刷新预览')
     const callsBeforeRefresh = processImage.mock.calls.length
 
     await act(async () => {
@@ -198,7 +222,7 @@ describe('CrossPreview', () => {
 
     expect(processImage.mock.calls.length).toBe(callsBeforeRefresh + 1)
     expect(useProjectStore.getState().processedImage).toBe(refreshedImage)
-    expect(messageSuccess).toHaveBeenCalledWith('Preview refreshed.')
+    expect(messageSuccess).toHaveBeenCalledWith('预览已刷新。')
   })
 
   it('falls back to the source image and avoids a success toast when refresh processing fails', async () => {
@@ -210,7 +234,7 @@ describe('CrossPreview', () => {
       root.render(<CrossPreview />)
     })
 
-    const refreshButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === 'Refresh preview')
+    const refreshButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '刷新预览')
 
     await act(async () => {
       refreshButton?.click()
@@ -218,7 +242,7 @@ describe('CrossPreview', () => {
 
     expect(useProjectStore.getState().processedImage).toBe(image)
     expect(messageSuccess).not.toHaveBeenCalled()
-    expect(messageError).toHaveBeenCalledWith('Failed to refresh preview.')
+    expect(messageError).toHaveBeenCalledWith('刷新预览失败。')
   })
 
   it('does not reprocess again just because processedImage changes after mount', async () => {

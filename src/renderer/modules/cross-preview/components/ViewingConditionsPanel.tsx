@@ -1,16 +1,18 @@
 import { Card, Form, Select, Slider } from 'antd'
-import { useProjectStore } from '../../../store/project'
 import { useDebounce } from '../../../hooks/useDebounce'
+import { translate } from '../../../constants/i18n'
+import { useLocaleStore } from '../../../store/locale'
+import { useProjectStore } from '../../../store/project'
 
 interface ViewingConditionsPanelProps {
   disabled?: boolean
 }
 
 export default function ViewingConditionsPanel({ disabled }: ViewingConditionsPanelProps) {
+  const locale = useLocaleStore((state) => state.locale)
   const processingOptions = useProjectStore((state) => state.processingOptions)
   const updateProcessingOptions = useProjectStore((state) => state.updateProcessingOptions)
 
-  // Debounced update for slider changes to avoid excessive reprocessing
   const debouncedUpdateViewingDistance = useDebounce(
     (value: number) => updateProcessingOptions({ viewingDistance: value }),
     300
@@ -22,53 +24,43 @@ export default function ViewingConditionsPanel({ disabled }: ViewingConditionsPa
 
   return (
     <Card
-      title="观察条件模拟"
+      title={translate(locale, 'crossPreview.conditions.title')}
       size="small"
       style={{
         borderRadius: 'var(--radius-lg)',
         boxShadow: 'var(--shadow-sm)',
-        border: '1px solid var(--color-border-light)',
+        border: '1px solid var(--color-border-light)'
       }}
     >
-      <Form
-        layout="vertical"
-        disabled={disabled}
-        style={{ marginTop: 'var(--space-sm)' }}
-      >
-        <Form.Item
-          label="光源"
-          style={{ marginBottom: 'var(--space-md)' }}
-        >
+      <Form layout="vertical" disabled={disabled} style={{ marginTop: 'var(--space-sm)' }}>
+        <Form.Item label={translate(locale, 'crossPreview.conditions.lightSource')} style={{ marginBottom: 'var(--space-md)' }}>
           <Select
             value={processingOptions.lightSource}
             onChange={(value) => updateProcessingOptions({ lightSource: value })}
             options={[
-              { label: 'D50 (日光)', value: 'D50' },
-              { label: 'D65 (标准日光)', value: 'D65' },
-              { label: 'F (荧光灯)', value: 'F' }
+              { label: translate(locale, 'crossPreview.conditions.lightSource.d50'), value: 'D50' },
+              { label: translate(locale, 'crossPreview.conditions.lightSource.d65'), value: 'D65' },
+              { label: translate(locale, 'crossPreview.conditions.lightSource.f'), value: 'F' }
             ]}
             style={{ width: '100%' }}
           />
         </Form.Item>
 
-        <Form.Item
-          label="纸张材质"
-          style={{ marginBottom: 'var(--space-md)' }}
-        >
+        <Form.Item label={translate(locale, 'crossPreview.conditions.paperType')} style={{ marginBottom: 'var(--space-md)' }}>
           <Select
             value={processingOptions.paperType}
             onChange={(value) => updateProcessingOptions({ paperType: value })}
             options={[
-              { label: '铜版纸 (Coated)', value: 'coated' },
-              { label: '哑光纸 (Uncoated)', value: 'uncoated' },
-              { label: '新闻纸 (Newsprint)', value: 'newsprint' }
+              { label: translate(locale, 'crossPreview.conditions.paper.coated'), value: 'coated' },
+              { label: translate(locale, 'crossPreview.conditions.paper.uncoated'), value: 'uncoated' },
+              { label: translate(locale, 'crossPreview.conditions.paper.newsprint'), value: 'newsprint' }
             ]}
             style={{ width: '100%' }}
           />
         </Form.Item>
 
         <Form.Item
-          label={`观察距离：${processingOptions.viewingDistance}mm`}
+          label={translate(locale, 'crossPreview.conditions.viewingDistance', { value: processingOptions.viewingDistance })}
           style={{ marginBottom: 'var(--space-md)' }}
         >
           <Slider
@@ -82,7 +74,7 @@ export default function ViewingConditionsPanel({ disabled }: ViewingConditionsPa
         </Form.Item>
 
         <Form.Item
-          label={`分辨率：${processingOptions.resolution} DPI`}
+          label={translate(locale, 'crossPreview.conditions.resolution', { value: processingOptions.resolution })}
           style={{ marginBottom: 0 }}
         >
           <Slider

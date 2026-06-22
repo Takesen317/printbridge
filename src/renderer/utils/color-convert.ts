@@ -208,15 +208,15 @@ export function getSharpnessFactor(viewingDistance: number, resolution: number):
   // 基于距离的清晰度调整
   // 250mm 是标准距离，大于它图像会显得更模糊（需要降低清晰度因子）
   // 小于它图像会更清晰（需要提高清晰度因子）
-  const distanceFactor = 250 / viewingDistance
+  const distanceFactor = Math.pow(250 / viewingDistance, 1.4)
 
   // 基于分辨率的清晰度调整
   // 300 DPI 是印刷标准，低于它会更模糊
-  const resolutionFactor = resolution / 300
+  const resolutionFactor = Math.pow(resolution / 300, 0.9)
 
   // 结合两个因素
   const combinedFactor = distanceFactor * resolutionFactor
 
   // 限制范围：0.5 到 1.5
-  return Math.max(0.5, Math.min(1.5, combinedFactor))
+  return Math.max(0.35, Math.min(1.7, combinedFactor))
 }

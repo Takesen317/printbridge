@@ -1,7 +1,9 @@
 import { BulbFilled, BulbOutlined } from '@ant-design/icons'
-import { Button, Layout, Menu, Tooltip } from 'antd'
+import { Button, Layout, Menu, Select, Tooltip } from 'antd'
 import { useState } from 'react'
-import { MODULE_CONFIG, type ModuleType } from '../../config/modules'
+import { useModuleConfig, type ModuleType } from '../../config/modules'
+import { translate } from '../../constants/i18n'
+import { useLocaleStore } from '../../store/locale'
 import { useThemeStore } from '../../store/theme'
 
 const { Sider, Content } = Layout
@@ -15,8 +17,10 @@ interface BasicLayoutProps {
 export default function BasicLayout({ activeModule, onModuleChange, children }: BasicLayoutProps) {
   const [collapsed, setCollapsed] = useState(false)
   const { themeMode, toggleTheme } = useThemeStore()
+  const { locale, setLocale } = useLocaleStore()
+  const moduleConfig = useModuleConfig()
 
-  const menuItems = MODULE_CONFIG.map(({ key, icon, label }) => ({
+  const menuItems = moduleConfig.map(({ key, icon, label }) => ({
     key,
     icon,
     label
@@ -45,7 +49,7 @@ export default function BasicLayout({ activeModule, onModuleChange, children }: 
               fontSize: '18px'
             }}
           >
-            <span style={{ transform: collapsed ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>⌃</span>
+            <span style={{ transform: collapsed ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>{'>'}</span>
           </div>
         }
       >
@@ -87,7 +91,7 @@ export default function BasicLayout({ activeModule, onModuleChange, children }: 
                 letterSpacing: '-0.5px'
               }}
             >
-              PrintBridge
+              {translate(locale, 'layout.brand')}
             </span>
           )}
         </div>
@@ -112,10 +116,26 @@ export default function BasicLayout({ activeModule, onModuleChange, children }: 
             right: 0,
             padding: '0 16px',
             display: 'flex',
-            justifyContent: collapsed ? 'center' : 'flex-start'
+            flexDirection: collapsed ? 'column' : 'row',
+            justifyContent: collapsed ? 'center' : 'space-between',
+            alignItems: 'center',
+            gap: 8
           }}
         >
-          <Tooltip title={themeMode === 'light' ? '切换到深色模式' : '切换到浅色模式'}>
+          {!collapsed && (
+            <Select
+              size="small"
+              value={locale}
+              onChange={(value) => setLocale(value as 'zh-CN' | 'en-US')}
+              options={[
+                { label: translate(locale, 'layout.language.zh'), value: 'zh-CN' },
+                { label: translate(locale, 'layout.language.en'), value: 'en-US' }
+              ]}
+              style={{ width: 96 }}
+            />
+          )}
+
+          <Tooltip title={themeMode === 'light' ? translate(locale, 'layout.theme.switchToDark') : translate(locale, 'layout.theme.switchToLight')}>
             <Button
               type="text"
               icon={themeMode === 'light' ? <BulbOutlined /> : <BulbFilled />}

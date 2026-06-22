@@ -1,6 +1,8 @@
 import { message } from 'antd'
 import { useEffect } from 'react'
+import { translate } from '../../constants/i18n'
 import { useImageProcessorWorker } from '../../hooks/useImageProcessorWorker'
+import { useLocaleStore } from '../../store/locale'
 import { useProjectStore } from '../../store/project'
 import { toRealImageData } from '../../utils/image-utils'
 import AiAssistant from '../ai-assistant/AiAssistant'
@@ -9,11 +11,12 @@ import CrossPreviewHeader from './components/CrossPreviewHeader'
 import ViewingConditionsPanel from './components/ViewingConditionsPanel'
 
 export default function CrossPreview() {
+  const locale = useLocaleStore((state) => state.locale)
   const originalImage = useProjectStore((state) => state.originalImage)
   const processedImage = useProjectStore((state) => state.processedImage)
   const processingOptions = useProjectStore((state) => state.processingOptions)
   const setProcessedImage = useProjectStore((state) => state.setProcessedImage)
-  const { processImage } = useImageProcessorWorker()
+  const { processImage, isProcessing } = useImageProcessorWorker()
 
   const processedForChild = toRealImageData(processedImage)
 
@@ -36,11 +39,11 @@ export default function CrossPreview() {
     processImage(sourceImage, processingOptions)
       .then((preview) => {
         setProcessedImage(preview)
-        message.success('Preview refreshed.')
+        message.success(translate(locale, 'crossPreview.refreshSuccess'))
       })
       .catch((error) => {
         console.error('Refresh failed:', error)
-        message.error('Failed to refresh preview.')
+        message.error(translate(locale, 'crossPreview.refreshError'))
       })
   }
 
@@ -55,6 +58,7 @@ export default function CrossPreview() {
             printPreviewData={processedForChild || undefined}
             onRefresh={handleRefresh}
             refreshDisabled={!toRealImageData(originalImage)}
+            isProcessing={isProcessing}
           />
         </div>
 

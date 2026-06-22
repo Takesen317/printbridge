@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, Menu, dialog, ipcMain } from 'electron'
 import fs from 'fs'
 import path from 'path'
 import type { MenuAction } from '../shared/constants/menu'
@@ -7,12 +7,26 @@ const { readFile, writeFile } = fs.promises
 
 let mainWindow: BrowserWindow | null = null
 
+function resolveWindowIconPath(): string {
+  const workspaceIcon = path.join(process.cwd(), 'build', 'icon.ico')
+  if (fs.existsSync(workspaceIcon)) {
+    return workspaceIcon
+  }
+
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'icon.ico')
+  }
+
+  return workspaceIcon
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 1024,
     minHeight: 600,
+    icon: resolveWindowIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

@@ -11,23 +11,11 @@ export default function InteractiveDemo() {
   const [greenValue, setGreenValue] = useState(0)
   const [blueValue, setBlueValue] = useState(128)
 
-  // 正确的处理顺序：先饱和度，再对比度
-  // 饱和度调整：将颜色向灰色靠拢或远离
-  // saturation = 1: 无变化
-  // saturation = 0: 完全去饱和（变成灰色）
-  // saturation > 1: 增强饱和度
   const MID_GRAY = 128
   const saturationFactor = saturation / 100
-
-  // 第一步：应用饱和度
   const desaturatedR = MID_GRAY + (redValue - MID_GRAY) * saturationFactor
   const desaturatedG = MID_GRAY + (greenValue - MID_GRAY) * saturationFactor
   const desaturatedB = MID_GRAY + (blueValue - MID_GRAY) * saturationFactor
-
-  // 第二步：应用对比度
-  // contrast = 100: 无变化
-  // contrast < 100: 压缩范围（对比度降低）
-  // contrast > 100: 扩展范围（对比度增加）
   const contrastFactor = contrast / 100
 
   const adjustedR = Math.min(255, Math.max(0, Math.round(((desaturatedR / 255 - 0.5) * contrastFactor + 0.5) * 255)))
@@ -37,7 +25,7 @@ export default function InteractiveDemo() {
   const cmyk = rgbToCmyk({ r: adjustedR, g: adjustedG, b: adjustedB })
 
   return (
-    <Card title="交互式色彩模拟演示">
+    <Card title="交互式色彩演示">
       <Text type="secondary" style={{ marginBottom: 16, display: 'block' }}>
         调整下方参数，观察颜色如何从 RGB 转换到 CMYK，以及参数变化对最终印刷效果的影响。
       </Text>

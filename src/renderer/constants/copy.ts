@@ -1,14 +1,17 @@
 export const CORE_WORKFLOW_COPY = {
   colorLab: {
     title: 'Color Lab',
-    description: 'Import an image, inspect representative color shifts, and preview a soft-proof style output.',
-    views: {
-      import: 'Import',
-      analyze: 'Analyze',
-      preview: 'Preview'
+    description: {
+      'zh-CN': '导入图像，检查代表性色彩偏移，并预览软打样风格输出。',
+      'en-US': 'Import an image, inspect representative color shifts, and preview a soft-proof style output.'
     },
-    importCardTitle: 'Import image',
-    chooseFile: 'Choose file'
+    views: {
+      import: { 'zh-CN': '导入', 'en-US': 'Import' },
+      analyze: { 'zh-CN': '分析', 'en-US': 'Analyze' },
+      preview: { 'zh-CN': '预览', 'en-US': 'Preview' }
+    },
+    importCardTitle: { 'zh-CN': '导入图像', 'en-US': 'Import image' },
+    chooseFile: { 'zh-CN': '选择文件', 'en-US': 'Choose file' }
   },
   crossPreview: {
     title: 'Cross-Media Preview',

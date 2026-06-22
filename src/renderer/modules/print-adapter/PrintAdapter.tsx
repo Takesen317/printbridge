@@ -18,7 +18,7 @@ export default function PrintAdapter() {
 
   const handleRunCheck = () => {
     if (!originalImage) {
-      message.warning('Please import an image first.')
+      message.warning('请先导入图像。')
       return
     }
 
@@ -42,16 +42,16 @@ export default function PrintAdapter() {
     <div className="module-content">
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 600, color: 'var(--color-text-primary)', margin: 0, marginBottom: 8 }}>
-          Smart Print Adapter
+          智能印前适配
         </h1>
         <p style={{ fontSize: 14, color: 'var(--color-text-secondary)', margin: 0 }}>
-          Run heuristic print-readiness checks for resolution, gamut risk, color workflow, and likely bleed issues.
+          对分辨率、色域风险、色彩流程和出血问题进行启发式印前检查。
         </p>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <Card
-          title="Print readiness summary"
+          title="印前检查摘要"
           style={{
             borderRadius: 'var(--radius-lg)',
             boxShadow: 'var(--shadow-md)',
@@ -61,7 +61,7 @@ export default function PrintAdapter() {
           <Row gutter={16}>
             <Col span={6}>
               <Statistic
-                title="Score"
+                title="得分"
                 value={checkResult?.overallScore || 0}
                 suffix="/ 100"
                 valueStyle={{ color: (checkResult?.overallScore || 0) >= 70 ? 'var(--color-success)' : 'var(--color-error)' }}
@@ -69,21 +69,21 @@ export default function PrintAdapter() {
             </Col>
             <Col span={6}>
               <Statistic
-                title="Errors"
+                title="错误"
                 value={checkResult?.problems.filter((problem) => problem.severity === 'error').length || 0}
                 valueStyle={{ color: 'var(--color-error)' }}
               />
             </Col>
             <Col span={6}>
               <Statistic
-                title="Warnings"
+                title="警告"
                 value={checkResult?.problems.filter((problem) => problem.severity === 'warning').length || 0}
                 valueStyle={{ color: 'var(--color-warning)' }}
               />
             </Col>
             <Col span={6}>
               <Statistic
-                title="Heuristic issues"
+                title="启发式问题"
                 value={checkResult?.heuristicWarnings || 0}
                 valueStyle={{ color: 'var(--color-warning)' }}
               />
@@ -99,7 +99,7 @@ export default function PrintAdapter() {
 
           <Space style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ width: 90, color: 'var(--color-text-secondary)' }}>Target paper:</span>
+              <span style={{ width: 90, color: 'var(--color-text-secondary)' }}>目标纸张：</span>
               <Segmented
                 value={paperSize}
                 onChange={(value) => setPaperSize(value as PaperSize)}
@@ -107,14 +107,14 @@ export default function PrintAdapter() {
                   { label: 'A4', value: 'A4' },
                   { label: 'A3', value: 'A3' },
                   { label: 'A5', value: 'A5' },
-                  { label: 'Custom', value: 'custom' }
+                  { label: '自定义', value: 'custom' }
                 ]}
               />
             </div>
 
             {paperSize === 'custom' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ width: 90, color: 'var(--color-text-secondary)' }}>Trim size:</span>
+                <span style={{ width: 90, color: 'var(--color-text-secondary)' }}>成品尺寸：</span>
                 <InputNumber addonAfter="mm" value={customWidth} onChange={(value) => setCustomWidth(value || 210)} min={50} max={1000} style={{ width: 110 }} />
                 <span>×</span>
                 <InputNumber addonAfter="mm" value={customHeight} onChange={(value) => setCustomHeight(value || 297)} min={50} max={1000} style={{ width: 110 }} />
@@ -123,7 +123,7 @@ export default function PrintAdapter() {
           </Space>
 
           <Button type="primary" onClick={handleRunCheck} loading={checking} style={{ marginTop: 16, borderRadius: 'var(--radius-md)' }} disabled={!originalImage}>
-            {checking ? 'Checking...' : 'Run checks'}
+            {checking ? '检查中...' : '开始检查'}
           </Button>
         </Card>
 
@@ -135,7 +135,7 @@ export default function PrintAdapter() {
           }}
         />
 
-        <Wizard onStepChange={() => undefined} onComplete={() => message.success('Print-readiness guide completed.')} />
+        <Wizard onStepChange={() => undefined} onComplete={() => message.success('印前检查向导已完成。')} />
       </div>
     </div>
   )

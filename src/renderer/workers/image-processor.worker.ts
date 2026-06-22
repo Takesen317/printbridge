@@ -40,15 +40,14 @@ export interface WorkerProcessOptions {
 function processImage(imageData: ImageDataTransfer, options: WorkerProcessOptions): ImageDataTransfer {
   const { width, height, data } = imageData
 
-  // Optimized parameters: less aggressive adjustments for performance
-  const saturationAdjust = options.paperType === 'newsprint' ? 0.75 :
-                           options.paperType === 'uncoated' ? 0.88 : 0.95
-  const contrastAdjust = options.paperType === 'newsprint' ? 1.08 :
-                          options.paperType === 'uncoated' ? 1.03 : 1.0
+  // Match the main-thread simulation so preview behavior is consistent across UI surfaces.
+  const saturationAdjust = options.paperType === 'newsprint' ? 0.7 :
+                           options.paperType === 'uncoated' ? 0.85 : 0.95
+  const contrastAdjust = options.paperType === 'newsprint' ? 1.1 :
+                          options.paperType === 'uncoated' ? 1.05 : 1.0
 
-  // Reduce blur radius for performance - max 2 instead of 3
   const sharpnessFactor = getSharpnessFactor(options.viewingDistance, options.resolution)
-  const blurRadius = Math.max(0, Math.round((1 - sharpnessFactor) * 2))
+  const blurRadius = Math.max(0, Math.round((1 - sharpnessFactor) * 3))
 
   const outputData = new Uint8ClampedArray(data.length)
 
@@ -73,23 +72,18 @@ function processImage(imageData: ImageDataTransfer, options: WorkerProcessOption
     outputData[i + 3] = a
   }
 
-  // If blur is needed, use optimized single-pass box blur (only if blurRadius > 1)
-  if (blurRadius > 1) {
+  // Apply blur when sharpness drops enough to make print softness perceptible.
+  if (blurRadius > 0) {
     const tempData = new Uint8ClampedArray(outputData)
 
-    // Use row-based blur instead of full 2D blur for performance
-    // This is a separable approximation that's much faster
     for (let y = 0; y < height; y++) {
-      const rowStart = y * width * 4
       for (let x = 0; x < width; x++) {
-        const idx = rowStart + x * 4
+        const idx = (y * width + x) * 4
 
         let rSum = 0, gSum = 0, bSum = 0, count = 0
 
-        // Only sample a subset of neighbors for performance (3x3 instead of full blur)
-        const step = Math.max(1, blurRadius - 1)
-        for (let dy = -step; dy <= step; dy += step) {
-          for (let dx = -step; dx <= step; dx += step) {
+        for (let dy = -blurRadius; dy <= blurRadius; dy++) {
+          for (let dx = -blurRadius; dx <= blurRadius; dx++) {
             const nx = x + dx
             const ny = y + dy
             if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
@@ -102,11 +96,9 @@ function processImage(imageData: ImageDataTransfer, options: WorkerProcessOption
           }
         }
 
-        if (count > 0) {
-          outputData[idx] = Math.round(rSum / count)
-          outputData[idx + 1] = Math.round(gSum / count)
-          outputData[idx + 2] = Math.round(bSum / count)
-        }
+        outputData[idx] = Math.round(rSum / count)
+        outputData[idx + 1] = Math.round(gSum / count)
+        outputData[idx + 2] = Math.round(bSum / count)
       }
     }
   }

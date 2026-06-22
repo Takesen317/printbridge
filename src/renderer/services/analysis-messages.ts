@@ -1,6 +1,6 @@
-const ICC_INITIALIZATION_STATUS_MESSAGE =
-  'ICC engine unavailable. Using simplified color conversion. Fallback preview is approximate and final print output may differ.'
+import { translate } from '../constants/i18n'
+import type { AppLocale } from '../store/locale'
 
-export function getIccInitializationStatusMessage(): string {
-  return ICC_INITIALIZATION_STATUS_MESSAGE
+export function getIccInitializationStatusMessage(locale: AppLocale = 'en-US'): string {
+  return translate(locale, 'analysis.iccFallback')
 }

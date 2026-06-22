@@ -1,11 +1,16 @@
+import { translate } from '../../../constants/i18n'
+import { useLocaleStore } from '../../../store/locale'
+
 export default function CrossPreviewHeader() {
+  const locale = useLocaleStore((state) => state.locale)
+
   return (
     <div style={{ marginBottom: 24 }}>
       <h1 style={{ fontSize: 24, fontWeight: 600, color: 'var(--color-text-primary)', margin: 0, marginBottom: 8 }}>
-        Cross-Media Preview
+        {translate(locale, 'crossPreview.title')}
       </h1>
       <p style={{ fontSize: 14, color: 'var(--color-text-secondary)', margin: 0 }}>
-        Compare on-screen content with simulated print-style output under different viewing conditions.
+        {translate(locale, 'crossPreview.description')}
       </p>
     </div>
   )

@@ -1,9 +1,11 @@
 import { CheckCircleOutlined, RobotOutlined, ThunderboltOutlined, WarningOutlined } from '@ant-design/icons'
 import { Alert, Button, Card, Divider, Select, Space, Spin, Tag, Typography } from 'antd'
+import { useState } from 'react'
+import { translate } from '../../constants/i18n'
 import { analyzeImageWithAI } from '../../services/ai-color-advisor'
+import { useLocaleStore } from '../../store/locale'
 import { useProjectStore } from '../../store/project'
 import { toRealImageData } from '../../utils/image-utils'
-import { useState } from 'react'
 
 const { Title, Text, Paragraph } = Typography
 
@@ -12,6 +14,7 @@ interface AiAssistantProps {
 }
 
 export default function AiAssistant({ className }: AiAssistantProps) {
+  const locale = useLocaleStore((state) => state.locale)
   const originalImage = useProjectStore((state) => state.originalImage)
   const advice = useProjectStore((state) => state.aiAdvice)
   const targetUse = useProjectStore((state) => state.aiTargetUse)
@@ -23,7 +26,7 @@ export default function AiAssistant({ className }: AiAssistantProps) {
   const handleAnalyze = async () => {
     const imageData = toRealImageData(originalImage)
     if (!imageData) {
-      setError('Please upload an image first.')
+      setError(translate(locale, 'ai.uploadFirst'))
       return
     }
 
@@ -36,18 +39,18 @@ export default function AiAssistant({ className }: AiAssistantProps) {
       setAiAdvice(result)
     } catch (err) {
       console.error('AI analysis failed:', err)
-      setError('AI analysis failed. Please try again.')
+      setError(translate(locale, 'ai.failed'))
     } finally {
       setLoading(false)
     }
   }
 
   const targetUseOptions = [
-    { value: 'general', label: 'General print' },
-    { value: 'magazine', label: 'Magazine / editorial' },
-    { value: 'brochure', label: 'Brochure / poster' },
-    { value: 'photo_print', label: 'Photo print' },
-    { value: 'packaging', label: 'Packaging' }
+    { value: 'general', label: translate(locale, 'ai.target.general') },
+    { value: 'magazine', label: translate(locale, 'ai.target.magazine') },
+    { value: 'brochure', label: translate(locale, 'ai.target.brochure') },
+    { value: 'photo_print', label: translate(locale, 'ai.target.photoPrint') },
+    { value: 'packaging', label: translate(locale, 'ai.target.packaging') }
   ]
 
   const profileTags: Record<string, string> = {
@@ -84,17 +87,17 @@ export default function AiAssistant({ className }: AiAssistantProps) {
         </div>
         <div>
           <Title level={5} style={{ margin: 0, fontSize: 15 }}>
-            AI Color Advisor
+            {translate(locale, 'ai.title')}
           </Title>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            DeepSeek or fallback rule set
+            {translate(locale, 'ai.subtitle')}
           </Text>
         </div>
       </div>
 
       <div style={{ marginBottom: 16 }}>
         <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-          Target output
+          {translate(locale, 'ai.targetOutput')}
         </Text>
         <Select value={targetUse} onChange={setAiTargetUse} options={targetUseOptions} style={{ width: '100%' }} size="small" />
       </div>
@@ -112,7 +115,7 @@ export default function AiAssistant({ className }: AiAssistantProps) {
           border: 'none'
         }}
       >
-        {loading ? 'Analyzing...' : 'Run AI analysis'}
+        {loading ? translate(locale, 'ai.running') : translate(locale, 'ai.run')}
       </Button>
 
       {error && <Alert type="error" message={error} showIcon style={{ marginTop: 12 }} />}
@@ -123,20 +126,20 @@ export default function AiAssistant({ className }: AiAssistantProps) {
 
           <div style={{ marginBottom: 12 }}>
             <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-              Recommended profile
+              {translate(locale, 'ai.recommendedProfile')}
             </Text>
             <Tag color={advice.profileType === 'cmyk' ? 'blue' : 'green'} style={{ fontSize: 13, padding: '4px 8px' }}>
               {advice.recommendedProfile} ({profileTags[advice.recommendedProfile] || 'RGB'})
             </Tag>
             <Tag style={{ marginLeft: 8 }}>{advice.source}</Tag>
             <Tag color={advice.confidence === 'high' ? 'green' : advice.confidence === 'medium' ? 'gold' : 'default'}>
-              confidence: {advice.confidence}
+              {translate(locale, 'ai.confidence', { value: advice.confidence })}
             </Tag>
           </div>
 
           <div style={{ marginBottom: 12 }}>
             <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-              Reasoning
+              {translate(locale, 'ai.reasoningTitle')}
             </Text>
             <Paragraph style={{ fontSize: 12, margin: 0, color: 'var(--color-text-secondary)' }}>{advice.reasoning}</Paragraph>
           </div>
@@ -147,17 +150,17 @@ export default function AiAssistant({ className }: AiAssistantProps) {
 
           <div style={{ marginBottom: 12 }}>
             <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-              Suggested adjustments
+              {translate(locale, 'ai.suggestedAdjustments')}
             </Text>
             <Space wrap size={4}>
               <Tag icon={<CheckCircleOutlined />} color="processing">
-                temperature: {advice.colorTemperature}
+                {translate(locale, 'ai.temperature', { value: advice.colorTemperature })}
               </Tag>
               <Tag icon={<CheckCircleOutlined />} color="processing">
-                saturation: {advice.saturation}
+                {translate(locale, 'ai.saturation', { value: advice.saturation })}
               </Tag>
               <Tag icon={<CheckCircleOutlined />} color="processing">
-                contrast: {advice.contrast}
+                {translate(locale, 'ai.contrast', { value: advice.contrast })}
               </Tag>
             </Space>
           </div>
@@ -165,7 +168,7 @@ export default function AiAssistant({ className }: AiAssistantProps) {
           <div>
             <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
               <WarningOutlined style={{ marginRight: 4 }} />
-              Print tips
+              {translate(locale, 'ai.printTips')}
             </Text>
             <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: 'var(--color-text-secondary)' }}>
               {advice.printingTips.map((tip, index) => (
@@ -181,7 +184,7 @@ export default function AiAssistant({ className }: AiAssistantProps) {
       {!originalImage && !loading && !advice && (
         <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--color-text-secondary)' }}>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            Upload an image to unlock AI-assisted color guidance.
+            {translate(locale, 'ai.emptyHint')}
           </Text>
         </div>
       )}
@@ -191,7 +194,7 @@ export default function AiAssistant({ className }: AiAssistantProps) {
           <Spin size="small" />
           <div style={{ marginTop: 8 }}>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              AI is evaluating image color characteristics...
+              {translate(locale, 'ai.loadingHint')}
             </Text>
           </div>
         </div>

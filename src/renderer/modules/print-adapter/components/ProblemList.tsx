@@ -1,5 +1,5 @@
-import { Card, List, Tag, Typography, Button } from 'antd'
-import { CheckCircleOutlined, WarningOutlined, InfoCircleOutlined, CloseCircleOutlined } from '@ant-design/icons'
+import { Button, Card, List, Tag, Typography } from 'antd'
+import { CheckCircleOutlined, CloseCircleOutlined, InfoCircleOutlined, WarningOutlined } from '@ant-design/icons'
 import { PrintProblem } from '../../../services/print-checker'
 
 const { Text } = Typography
@@ -31,27 +31,29 @@ export default function ProblemList({ problems, onFixClick }: ProblemListProps) 
   if (problems.length === 0) {
     return (
       <Card
-        title="问题检测"
+        title="问题检查"
         style={{
           borderRadius: 'var(--radius-lg)',
           boxShadow: 'var(--shadow-sm)',
-          border: '1px solid var(--color-border-light)',
+          border: '1px solid var(--color-border-light)'
         }}
       >
-        <div style={{
-          textAlign: 'center',
-          padding: 32,
-          background: 'var(--color-success-bg)',
-          borderRadius: 'var(--radius-lg)',
-          margin: 'var(--space-sm)'
-        }}>
+        <div
+          style={{
+            textAlign: 'center',
+            padding: 32,
+            background: 'var(--color-success-bg)',
+            borderRadius: 'var(--radius-lg)',
+            margin: 'var(--space-sm)'
+          }}
+        >
           <CheckCircleOutlined style={{ fontSize: 48, color: 'var(--color-success)' }} />
           <div style={{ marginTop: 16 }}>
             <Text strong style={{ fontSize: 18, color: 'var(--color-text-primary)' }}>
               未检测到问题
             </Text>
           </div>
-          <Text type="secondary">设计稿已准备就绪，可以进行印刷</Text>
+          <Text type="secondary">设计稿已准备就绪，可以进行印前输出。</Text>
         </div>
       </Card>
     )
@@ -63,7 +65,7 @@ export default function ProblemList({ problems, onFixClick }: ProblemListProps) 
       style={{
         borderRadius: 'var(--radius-lg)',
         boxShadow: 'var(--shadow-sm)',
-        border: '1px solid var(--color-border-light)',
+        border: '1px solid var(--color-border-light)'
       }}
     >
       <List
@@ -108,20 +110,18 @@ export default function ProblemList({ problems, onFixClick }: ProblemListProps) 
                 }
                 description={
                   <div style={{ marginTop: 'var(--space-xs)' }}>
-                    <Text style={{ color: 'var(--color-text-secondary)' }}>
-                      {problem.description}
-                    </Text>
+                    <Text style={{ color: 'var(--color-text-secondary)' }}>{problem.description}</Text>
                     {problem.suggestedFix && (
-                      <div style={{
-                        marginTop: 'var(--space-xs)',
-                        padding: 'var(--space-xs) var(--space-sm)',
-                        background: 'var(--color-primary-bg)',
-                        borderRadius: 'var(--radius-sm)',
-                        fontSize: 12
-                      }}>
-                        <Text style={{ color: 'var(--color-primary)' }}>
-                          建议修正：{problem.suggestedFix}
-                        </Text>
+                      <div
+                        style={{
+                          marginTop: 'var(--space-xs)',
+                          padding: 'var(--space-xs) var(--space-sm)',
+                          background: 'var(--color-primary-bg)',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: 12
+                        }}
+                      >
+                        <Text style={{ color: 'var(--color-primary)' }}>建议修正：{problem.suggestedFix}</Text>
                       </div>
                     )}
                   </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useCallback, useLayoutEffect, useRef } from 'react'
 import { toRealImageData } from '../utils/image-utils'
 
 /**
@@ -23,15 +23,8 @@ export function useCanvasImage(
     const canvas = canvasRef.current
     if (!canvas) return
 
-    let imgData: ImageData | null = null
-
-    if (useInstanceCheck) {
-      // For potentially deserialized data from store
-      imgData = imageData instanceof ImageData ? imageData : null
-    } else {
-      // Normal case: convert from store format
-      imgData = toRealImageData(imageData as ImageData)
-    }
+    const imgData =
+      useInstanceCheck && imageData instanceof ImageData ? imageData : toRealImageData(imageData as ImageData)
 
     if (!imgData) return
 
@@ -43,7 +36,7 @@ export function useCanvasImage(
     ctx.putImageData(imgData, 0, 0)
   }, [canvasRef, imageData, useInstanceCheck])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     draw()
   }, [draw])
 }
@@ -72,7 +65,7 @@ export function useCanvasImageManual(imageData: ImageData | unknown) {
     ctx.putImageData(imgData, 0, 0)
   }, [imageData])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     draw()
   }, [draw])
 

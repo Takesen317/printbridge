@@ -1,7 +1,9 @@
 import { Slider } from 'antd'
-import { useState, useRef } from 'react'
-import { toRealImageData } from '../../../utils/image-utils'
+import { useRef, useState } from 'react'
+import { translate } from '../../../constants/i18n'
 import { useCanvasImage } from '../../../hooks/useCanvasImage'
+import { useLocaleStore } from '../../../store/locale'
+import { toRealImageData } from '../../../utils/image-utils'
 
 interface OverlayViewProps {
   originalImageData?: ImageData
@@ -9,28 +11,28 @@ interface OverlayViewProps {
 }
 
 export default function OverlayView({ originalImageData, printPreviewData }: OverlayViewProps) {
+  const locale = useLocaleStore((state) => state.locale)
   const [opacity, setOpacity] = useState(50)
   const originalCanvasRef = useRef<HTMLCanvasElement>(null)
   const printCanvasRef = useRef<HTMLCanvasElement>(null)
 
-  // 绘制原始图像
   useCanvasImage(originalCanvasRef, originalImageData)
-
-  // 绘制打印预览图像
   useCanvasImage(printCanvasRef, printPreviewData)
 
   const originalData = toRealImageData(originalImageData)
   if (!originalData) {
     return (
       <div style={{ padding: 'var(--space-lg)' }}>
-        <div style={{
-          textAlign: 'center',
-          padding: 48,
-          color: 'var(--color-text-tertiary)',
-          background: 'var(--color-bg)',
-          borderRadius: 'var(--radius-lg)'
-        }}>
-          请先导入图像
+        <div
+          style={{
+            textAlign: 'center',
+            padding: 48,
+            color: 'var(--color-text-tertiary)',
+            background: 'var(--color-bg)',
+            borderRadius: 'var(--radius-lg)'
+          }}
+        >
+          {translate(locale, 'crossPreview.overlayEmpty')}
         </div>
       </div>
     )
@@ -40,20 +42,21 @@ export default function OverlayView({ originalImageData, printPreviewData }: Ove
   const containerHeight = 380
   const displayWidth = Math.min(containerHeight * ratio, 600)
   const displayHeight = displayWidth / ratio
-
   const printData = toRealImageData(printPreviewData)
 
   return (
     <div style={{ padding: 'var(--space-md)' }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: 400,
-        background: 'var(--color-bg)',
-        borderRadius: 'var(--radius-lg)',
-        padding: 'var(--space-md)'
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: 400,
+          background: 'var(--color-bg)',
+          borderRadius: 'var(--radius-lg)',
+          padding: 'var(--space-md)'
+        }}
+      >
         <div style={{ position: 'relative' }}>
           <canvas
             ref={originalCanvasRef}
@@ -85,20 +88,16 @@ export default function OverlayView({ originalImageData, printPreviewData }: Ove
       </div>
 
       <div style={{ marginTop: 'var(--space-lg)', padding: '0 var(--space-sm)' }}>
-        <Slider
-          min={0}
-          max={100}
-          value={opacity}
-          onChange={setOpacity}
-          tooltip={{ formatter: (val) => `${val}%` }}
-        />
-        <div style={{
-          textAlign: 'center',
-          color: 'var(--color-text-secondary)',
-          fontSize: 13,
-          marginTop: 'var(--space-xs)'
-        }}>
-          印刷预览层透明度：{opacity}%
+        <Slider min={0} max={100} value={opacity} onChange={setOpacity} tooltip={{ formatter: (val) => `${val}%` }} />
+        <div
+          style={{
+            textAlign: 'center',
+            color: 'var(--color-text-secondary)',
+            fontSize: 13,
+            marginTop: 'var(--space-xs)'
+          }}
+        >
+          {translate(locale, 'crossPreview.opacity', { value: opacity })}
         </div>
       </div>
     </div>

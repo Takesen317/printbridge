@@ -1,3 +1,6 @@
+import { translate } from '../constants/i18n'
+import { useLocaleStore } from '../store/locale'
+
 export interface ImageColorData {
   dominantColors: string[]
   brightness: number
@@ -23,9 +26,6 @@ export interface AIColorAdvice {
   confidence: AIAdviceConfidence
   approximationNotice?: string
 }
-
-const RULE_BASED_APPROXIMATION_NOTICE =
-  'This advice comes from the built-in fallback model rather than a live LLM response.'
 
 export interface AIColorAnalysisRequest {
   imageData: ImageData
@@ -145,6 +145,7 @@ Respond in JSON with:
 }
 
 function simulateAIAnalysis(colorData: ImageColorData, targetUse: string): AIColorAdvice {
+  const locale = useLocaleStore.getState().locale
   let recommendedProfile = 'sRGB'
   let profileType: 'rgb' | 'cmyk' = 'rgb'
 
@@ -168,10 +169,10 @@ function simulateAIAnalysis(colorData: ImageColorData, targetUse: string): AICol
   }
 
   const printingTips: string[] = []
-  if (colorData.hasSkinTones) printingTips.push('Pay attention to skin tone reproduction and consider a proof before final print.')
-  if (colorData.contrast === 'high') printingTips.push('High contrast may lose detail in shadows, so soft-proof the darkest areas.')
-  if (colorData.saturation === 'high') printingTips.push('Very saturated colors may lose intensity in CMYK, so inspect gamut-sensitive regions.')
-  if (colorData.colorTemperature === 'warm') printingTips.push('Warm tones usually benefit from coated-paper workflows such as FOGRA39.')
+  if (colorData.hasSkinTones) printingTips.push(translate(locale, 'ai.tip.skinTones'))
+  if (colorData.contrast === 'high') printingTips.push(translate(locale, 'ai.tip.highContrast'))
+  if (colorData.saturation === 'high') printingTips.push(translate(locale, 'ai.tip.highSaturation'))
+  if (colorData.colorTemperature === 'warm') printingTips.push(translate(locale, 'ai.tip.warmTones'))
 
   return {
     recommendedProfile,
@@ -179,11 +180,17 @@ function simulateAIAnalysis(colorData: ImageColorData, targetUse: string): AICol
     colorTemperature: colorData.colorTemperature,
     saturation: colorData.saturation,
     contrast: colorData.contrast === 'high' ? 'strong' : colorData.contrast === 'medium' ? 'normal' : 'soft',
-    reasoning: `Rule-based analysis suggests ${recommendedProfile} for ${targetUse} output because the image looks ${colorData.sceneType}, ${colorData.saturation} in saturation, and ${colorData.contrast} in contrast.`,
-    printingTips: printingTips.length > 0 ? printingTips : ['Use soft proofing to preview colors before printing.'],
+    reasoning: translate(locale, 'ai.reasoning', {
+      profile: recommendedProfile,
+      targetUse,
+      sceneType: colorData.sceneType,
+      saturation: colorData.saturation,
+      contrast: colorData.contrast
+    }),
+    printingTips: printingTips.length > 0 ? printingTips : [translate(locale, 'ai.tip.softProof')],
     source: 'rule-based',
     confidence: 'low',
-    approximationNotice: RULE_BASED_APPROXIMATION_NOTICE
+    approximationNotice: translate(locale, 'ai.ruleBasedNotice')
   }
 }
 
@@ -258,5 +265,5 @@ export function getAvailableProfilesForAI(): typeof ICC_PROFILES {
 }
 
 export function getRuleBasedApproximationNotice(): string {
-  return RULE_BASED_APPROXIMATION_NOTICE
+  return translate(useLocaleStore.getState().locale, 'ai.ruleBasedNotice')
 }

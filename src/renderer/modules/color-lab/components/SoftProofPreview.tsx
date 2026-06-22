@@ -1,7 +1,9 @@
 import { Card, Switch, Typography } from 'antd'
 import { useRef } from 'react'
+import { translate } from '../../../constants/i18n'
 import { useCanvasImage } from '../../../hooks/useCanvasImage'
 import { useColorStore } from '../../../store/color'
+import { useLocaleStore } from '../../../store/locale'
 
 const { Text } = Typography
 
@@ -11,6 +13,7 @@ interface SoftProofPreviewProps {
 }
 
 export default function SoftProofPreview({ originalImageData, proofImageData }: SoftProofPreviewProps) {
+  const locale = useLocaleStore((state) => state.locale)
   const softProofEnabled = useColorStore((state) => state.softProofEnabled)
   const toggleSoftProof = useColorStore((state) => state.toggleSoftProof)
   const originalCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -21,12 +24,19 @@ export default function SoftProofPreview({ originalImageData, proofImageData }: 
 
   return (
     <Card
-      title="Soft-proof preview"
-      extra={<Switch checkedChildren="On" unCheckedChildren="Off" checked={softProofEnabled} onChange={toggleSoftProof} />}
+      title={translate(locale, 'colorLab.softProofCard')}
+      extra={
+        <Switch
+          checkedChildren={translate(locale, 'colorLab.softProof.toggleOn')}
+          unCheckedChildren={translate(locale, 'colorLab.softProof.toggleOff')}
+          checked={softProofEnabled}
+          onChange={toggleSoftProof}
+        />
+      }
     >
       <div style={{ display: 'flex', gap: 16 }}>
         <div style={{ flex: 1 }}>
-          <Text type="secondary">Screen version</Text>
+          <Text type="secondary">{translate(locale, 'colorLab.softProof.screenVersion')}</Text>
           <div
             style={{
               width: '100%',
@@ -42,13 +52,13 @@ export default function SoftProofPreview({ originalImageData, proofImageData }: 
             {originalImageData instanceof ImageData ? (
               <canvas ref={originalCanvasRef} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
             ) : (
-              <Text type="secondary">Import an image to preview it here.</Text>
+              <Text type="secondary">{translate(locale, 'colorLab.softProof.importHint')}</Text>
             )}
           </div>
         </div>
 
         <div style={{ flex: 1 }}>
-          <Text type="secondary">Soft-proof version</Text>
+          <Text type="secondary">{translate(locale, 'colorLab.softProof.proofVersion')}</Text>
           <div
             style={{
               width: '100%',
@@ -65,7 +75,7 @@ export default function SoftProofPreview({ originalImageData, proofImageData }: 
             {proofImageData instanceof ImageData ? (
               <canvas ref={proofCanvasRef} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
             ) : (
-              <Text type="secondary">Enable soft proofing after importing an image.</Text>
+              <Text type="secondary">{translate(locale, 'colorLab.softProof.enableHint')}</Text>
             )}
           </div>
         </div>

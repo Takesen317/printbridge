@@ -1,3 +1,5 @@
+import { translate } from '../constants/i18n'
+import type { AppLocale } from '../store/locale'
 import type { ProblemCategory, ProblemConfidence } from './print-checker'
 
 type DeterministicDescriptionInput = {
@@ -15,34 +17,34 @@ export type PreflightDescriptionInput =
   | DeterministicDescriptionInput
   | NonDeterministicDescriptionInput
 
-function getPreflightPrefix(input: PreflightDescriptionInput): string {
+function getPreflightPrefix(input: PreflightDescriptionInput, locale: AppLocale): string {
   if (input.category === 'deterministic') {
-    return 'Confirmed by deterministic checks.'
+    return translate(locale, 'preflight.deterministic')
   }
 
   if (input.category === 'heuristic') {
     if (input.confidence === 'high') {
-      return 'Flagged by a heuristic check, but confidence is still an estimate.'
+      return translate(locale, 'preflight.heuristic.high')
     }
 
     if (input.confidence === 'medium') {
-      return 'Flagged by a heuristic check, so confidence is moderate.'
+      return translate(locale, 'preflight.heuristic.medium')
     }
 
-    return 'Flagged by a heuristic check, so confidence is limited.'
+    return translate(locale, 'preflight.heuristic.low')
   }
 
   if (input.confidence === 'high') {
-    return 'Advisory only, even though the signal is strong.'
+    return translate(locale, 'preflight.advisory.high')
   }
 
   if (input.confidence === 'medium') {
-    return 'Advisory only; review is still recommended.'
+    return translate(locale, 'preflight.advisory.medium')
   }
 
-  return 'Advisory only; confidence is limited because this check cannot confirm document intent.'
+  return translate(locale, 'preflight.advisory.low')
 }
 
-export function formatPreflightDescription(input: PreflightDescriptionInput): string {
-  return `${getPreflightPrefix(input)} ${input.detail}`
+export function formatPreflightDescription(input: PreflightDescriptionInput, locale: AppLocale = 'en-US'): string {
+  return `${getPreflightPrefix(input, locale)} ${input.detail}`
 }

@@ -8,6 +8,8 @@ import {
   PrinterOutlined,
   BookOutlined
 } from '@ant-design/icons'
+import { translate } from '../constants/i18n'
+import { useLocaleStore } from '../store/locale'
 
 export type ModuleType = 'color-lab' | 'cross-preview' | 'print-adapter' | 'knowledge-hub'
 
@@ -17,9 +19,13 @@ export interface ModuleConfig {
   label: string
 }
 
-export const MODULE_CONFIG: ModuleConfig[] = [
-  { key: 'color-lab', icon: <BgColorsOutlined />, label: '色彩管理' },
-  { key: 'cross-preview', icon: <ExpandOutlined />, label: '跨媒介预览' },
-  { key: 'print-adapter', icon: <PrinterOutlined />, label: '智能印刷适配' },
-  { key: 'knowledge-hub', icon: <BookOutlined />, label: '学习资源库' }
-]
+export function useModuleConfig(): ModuleConfig[] {
+  const locale = useLocaleStore((state) => state.locale)
+
+  return [
+    { key: 'color-lab', icon: <BgColorsOutlined />, label: translate(locale, 'module.colorLab') },
+    { key: 'cross-preview', icon: <ExpandOutlined />, label: translate(locale, 'module.crossPreview') },
+    { key: 'print-adapter', icon: <PrinterOutlined />, label: translate(locale, 'module.printAdapter') },
+    { key: 'knowledge-hub', icon: <BookOutlined />, label: translate(locale, 'module.knowledgeHub') }
+  ]
+}
