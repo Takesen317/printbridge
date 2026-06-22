@@ -1,6 +1,6 @@
 {
   "name": "printbridge",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A desktop bridge between digital media previews and print-oriented checks",
   "author": "PrintBridge Team",
   "main": "dist-electron/main.js",
